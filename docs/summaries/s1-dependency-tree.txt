@@ -1,0 +1,470 @@
+[INFO] Scanning for projects...
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/flywaydb/flyway-maven-plugin/11.7.2/flyway-maven-plugin-11.7.2.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/flywaydb/flyway-maven-plugin/11.7.2/flyway-maven-plugin-11.7.2.pom (3.8 kB at 5.3 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/flywaydb/flyway-parent/11.7.2/flyway-parent-11.7.2.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/flywaydb/flyway-parent/11.7.2/flyway-parent-11.7.2.pom (36 kB at 89 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/flywaydb/flyway-maven-plugin/11.7.2/flyway-maven-plugin-11.7.2.jar
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/flywaydb/flyway-maven-plugin/11.7.2/flyway-maven-plugin-11.7.2.jar (110 kB at 149 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/jooq/jooq-codegen-maven/3.19.35/jooq-codegen-maven-3.19.35.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/jooq/jooq-codegen-maven/3.19.35/jooq-codegen-maven-3.19.35.pom (3.9 kB at 14 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/jooq/jooq-parent/3.19.35/jooq-parent-3.19.35.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/jooq/jooq-parent/3.19.35/jooq-parent-3.19.35.pom (41 kB at 162 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/jooq/jooq-codegen-maven/3.19.35/jooq-codegen-maven-3.19.35.jar
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/jooq/jooq-codegen-maven/3.19.35/jooq-codegen-maven-3.19.35.jar (18 kB at 75 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/liquibase/liquibase-maven-plugin/4.31.1/liquibase-maven-plugin-4.31.1.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/liquibase/liquibase-maven-plugin/4.31.1/liquibase-maven-plugin-4.31.1.pom (2.0 kB at 7.7 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/liquibase/liquibase-maven-plugin/4.31.1/liquibase-maven-plugin-4.31.1.jar
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/liquibase/liquibase-maven-plugin/4.31.1/liquibase-maven-plugin-4.31.1.jar (352 kB at 829 kB/s)
+[INFO] 
+[INFO] ------------------< com.codewisdom.spike:stack-probe >------------------
+[INFO] Building stack-probe 1.0.0
+[INFO]   from pom.xml
+[INFO] --------------------------------[ pom ]---------------------------------
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-starter-amqp/3.5.15/spring-boot-starter-amqp-3.5.15.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-starter-amqp/3.5.15/spring-boot-starter-amqp-3.5.15.pom (2.5 kB at 5.7 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-messaging/6.2.19/spring-messaging-6.2.19.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-messaging/6.2.19/spring-messaging-6.2.19.pom (2.2 kB at 9.3 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/amqp/spring-rabbit/3.2.11/spring-rabbit-3.2.11.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/amqp/spring-rabbit/3.2.11/spring-rabbit-3.2.11.pom (7.0 kB at 18 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/amqp/spring-amqp/3.2.11/spring-amqp-3.2.11.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/amqp/spring-amqp/3.2.11/spring-amqp-3.2.11.pom (7.1 kB at 16 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/retry/spring-retry/2.0.13/spring-retry-2.0.13.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/retry/spring-retry/2.0.13/spring-retry-2.0.13.pom (2.5 kB at 7.0 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/rabbitmq/amqp-client/5.25.0/amqp-client-5.25.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/rabbitmq/amqp-client/5.25.0/amqp-client-5.25.0.pom (36 kB at 143 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-tx/6.2.19/spring-tx-6.2.19.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-tx/6.2.19/spring-tx-6.2.19.pom (2.2 kB at 8.0 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-starter-data-redis/3.5.15/spring-boot-starter-data-redis-3.5.15.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-starter-data-redis/3.5.15/spring-boot-starter-data-redis-3.5.15.pom (2.5 kB at 8.8 kB/s)
+[INFO] Artifact io.lettuce:lettuce-core:pom:6.6.0.RELEASE is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Artifact io.lettuce:lettuce-core:pom:6.6.0.RELEASE is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/lettuce/lettuce-core/6.6.0.RELEASE/lettuce-core-6.6.0.RELEASE.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/lettuce/lettuce-core/6.6.0.RELEASE/lettuce-core-6.6.0.RELEASE.pom (0 B at 0 B/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/spring-data-redis/3.5.12/spring-data-redis-3.5.12.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/spring-data-redis/3.5.12/spring-data-redis-3.5.12.pom (9.9 kB at 44 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/build/spring-data-parent/3.5.12/spring-data-parent-3.5.12.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/build/spring-data-parent/3.5.12/spring-data-parent-3.5.12.pom (44 kB at 181 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/build/spring-data-build/3.5.12/spring-data-build-3.5.12.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/build/spring-data-build/3.5.12/spring-data-build-3.5.12.pom (7.2 kB at 33 kB/s)
+[INFO] Artifact io.netty:netty-bom:pom:4.1.121.Final is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Artifact io.netty:netty-bom:pom:4.1.121.Final is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/netty/netty-bom/4.1.121.Final/netty-bom-4.1.121.Final.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/netty/netty-bom/4.1.121.Final/netty-bom-4.1.121.Final.pom (0 B at 0 B/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/micrometer/micrometer-tracing-bom/1.5.12/micrometer-tracing-bom-1.5.12.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/micrometer/micrometer-tracing-bom/1.5.12/micrometer-tracing-bom-1.5.12.pom (4.4 kB at 8.0 kB/s)
+[INFO] Artifact com.fasterxml.jackson:jackson-bom:pom:2.19.4 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Artifact com.fasterxml.jackson:jackson-bom:pom:2.19.4 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/jackson/jackson-bom/2.19.4/jackson-bom-2.19.4.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/jackson/jackson-bom/2.19.4/jackson-bom-2.19.4.pom (0 B at 0 B/s)
+[INFO] Artifact com.fasterxml.jackson:jackson-parent:pom:2.19.3 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases+snapshots)]
+[INFO] Artifact com.fasterxml.jackson:jackson-parent:pom:2.19.3 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases+snapshots)]
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/jackson/jackson-parent/2.19.3/jackson-parent-2.19.3.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/jackson/jackson-parent/2.19.3/jackson-parent-2.19.3.pom (0 B at 0 B/s)
+[INFO] Artifact com.fasterxml:oss-parent:pom:69 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases+snapshots)]
+[INFO] Artifact com.fasterxml:oss-parent:pom:69 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases+snapshots)]
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/oss-parent/69/oss-parent-69.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/oss-parent/69/oss-parent-69.pom (0 B at 0 B/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/spring-data-keyvalue/3.5.12/spring-data-keyvalue-3.5.12.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/spring-data-keyvalue/3.5.12/spring-data-keyvalue-3.5.12.pom (2.7 kB at 11 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/spring-data-commons/3.5.12/spring-data-commons-3.5.12.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/spring-data-commons/3.5.12/spring-data-commons-3.5.12.pom (10 kB at 44 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-oxm/6.2.19/spring-oxm-6.2.19.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-oxm/6.2.19/spring-oxm-6.2.19.pom (2.4 kB at 6.6 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-context-support/6.2.19/spring-context-support-6.2.19.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-context-support/6.2.19/spring-context-support-6.2.19.pom (2.4 kB at 6.5 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-starter-alibaba-nacos-discovery/2025.0.0.0/spring-cloud-starter-alibaba-nacos-discovery-2025.0.0.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-starter-alibaba-nacos-discovery/2025.0.0.0/spring-cloud-starter-alibaba-nacos-discovery-2025.0.0.0.pom (5.4 kB at 24 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-alibaba-starters/2025.0.0.0/spring-cloud-alibaba-starters-2025.0.0.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-alibaba-starters/2025.0.0.0/spring-cloud-alibaba-starters-2025.0.0.0.pom (2.6 kB at 8.5 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-alibaba/2025.0.0.0/spring-cloud-alibaba-2025.0.0.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-alibaba/2025.0.0.0/spring-cloud-alibaba-2025.0.0.0.pom (2.4 kB at 9.8 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/cloud/spring-cloud-build/4.3.0/spring-cloud-build-4.3.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/cloud/spring-cloud-build/4.3.0/spring-cloud-build-4.3.0.pom (49 kB at 182 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/cloud/spring-cloud-build-dependencies/4.3.0/spring-cloud-build-dependencies-4.3.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/cloud/spring-cloud-build-dependencies/4.3.0/spring-cloud-build-dependencies-4.3.0.pom (3.3 kB at 13 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-dependencies/3.5.0/spring-boot-dependencies-3.5.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-dependencies/3.5.0/spring-boot-dependencies-3.5.0.pom (96 kB at 262 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/assertj/assertj-bom/3.27.3/assertj-bom-3.27.3.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/assertj/assertj-bom/3.27.3/assertj-bom-3.27.3.pom (3.7 kB at 13 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/zipkin/reporter2/zipkin-reporter-bom/3.5.0/zipkin-reporter-bom-3.5.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/zipkin/reporter2/zipkin-reporter-bom/3.5.0/zipkin-reporter-bom-3.5.0.pom (6.3 kB at 25 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/infinispan/infinispan-bom/15.2.1.Final/infinispan-bom-15.2.1.Final.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/infinispan/infinispan-bom/15.2.1.Final/infinispan-bom-15.2.1.Final.pom (17 kB at 58 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/infinispan/infinispan-build-configuration-parent/15.2.1.Final/infinispan-build-configuration-parent-15.2.1.Final.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/infinispan/infinispan-build-configuration-parent/15.2.1.Final/infinispan-build-configuration-parent-15.2.1.Final.pom (18 kB at 63 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/jackson/jackson-bom/2.19.0/jackson-bom-2.19.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/jackson/jackson-bom/2.19.0/jackson-bom-2.19.0.pom (20 kB at 91 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/jackson/jackson-parent/2.19/jackson-parent-2.19.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/jackson/jackson-parent/2.19/jackson-parent-2.19.pom (6.7 kB at 27 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/oss-parent/65/oss-parent-65.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/oss-parent/65/oss-parent-65.pom (23 kB at 64 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/eclipse/jetty/ee10/jetty-ee10-bom/12.0.21/jetty-ee10-bom-12.0.21.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/eclipse/jetty/ee10/jetty-ee10-bom/12.0.21/jetty-ee10-bom-12.0.21.pom (9.6 kB at 34 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/eclipse/jetty/jetty-bom/12.0.21/jetty-bom-12.0.21.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/eclipse/jetty/jetty-bom/12.0.21/jetty-bom-12.0.21.pom (15 kB at 61 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/micrometer/micrometer-bom/1.15.0/micrometer-bom-1.15.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/micrometer/micrometer-bom/1.15.0/micrometer-bom-1.15.0.pom (8.6 kB at 33 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/micrometer/micrometer-tracing-bom/1.5.0/micrometer-tracing-bom-1.5.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/micrometer/micrometer-tracing-bom/1.5.0/micrometer-tracing-bom-1.5.0.pom (4.5 kB at 19 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/mongodb/mongodb-driver-bom/5.4.0/mongodb-driver-bom-5.4.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/mongodb/mongodb-driver-bom/5.4.0/mongodb-driver-bom-5.4.0.pom (4.0 kB at 11 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/apache/pulsar/pulsar-bom/4.0.4/pulsar-bom-4.0.4.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/apache/pulsar/pulsar-bom/4.0.4/pulsar-bom-4.0.4.pom (25 kB at 93 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/projectreactor/reactor-bom/2024.0.6/reactor-bom-2024.0.6.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/projectreactor/reactor-bom/2024.0.6/reactor-bom-2024.0.6.pom (4.8 kB at 19 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/rest-assured/rest-assured-bom/5.5.2/rest-assured-bom-5.5.2.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/rest-assured/rest-assured-bom/5.5.2/rest-assured-bom-5.5.2.pom (5.0 kB at 21 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/spring-data-bom/2025.0.0/spring-data-bom-2025.0.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/spring-data-bom/2025.0.0/spring-data-bom-2025.0.0.pom (5.5 kB at 24 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-framework-bom/6.2.7/spring-framework-bom-6.2.7.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-framework-bom/6.2.7/spring-framework-bom-6.2.7.pom (5.8 kB at 23 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/integration/spring-integration-bom/6.5.0/spring-integration-bom-6.5.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/integration/spring-integration-bom/6.5.0/spring-integration-bom-6.5.0.pom (10 kB at 39 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/pulsar/spring-pulsar-bom/1.2.6/spring-pulsar-bom-1.2.6.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/pulsar/spring-pulsar-bom/1.2.6/spring-pulsar-bom-1.2.6.pom (2.9 kB at 12 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/security/spring-security-bom/6.5.0/spring-security-bom-6.5.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/security/spring-security-bom/6.5.0/spring-security-bom-6.5.0.pom (5.3 kB at 26 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/session/spring-session-bom/3.5.0/spring-session-bom-3.5.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/session/spring-session-bom/3.5.0/spring-session-bom-3.5.0.pom (2.9 kB at 9.3 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/ws/spring-ws-bom/4.1.0/spring-ws-bom-4.1.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/ws/spring-ws-bom/4.1.0/spring-ws-bom-4.1.0.pom (2.3 kB at 5.8 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/testcontainers/testcontainers-bom/1.21.0/testcontainers-bom-1.21.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/testcontainers/testcontainers-bom/1.21.0/testcontainers-bom-1.21.0.pom (12 kB at 54 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-alibaba-commons/2025.0.0.0/spring-cloud-alibaba-commons-2025.0.0.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-alibaba-commons/2025.0.0.0/spring-cloud-alibaba-commons-2025.0.0.0.pom (2.9 kB at 8.9 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/nacos/nacos-client/3.0.3/nacos-client-3.0.3.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/nacos/nacos-client/3.0.3/nacos-client-3.0.3.pom (3.1 kB at 13 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/nacos/nacos-client-basic/3.0.3/nacos-client-basic-3.0.3.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/nacos/nacos-client-basic/3.0.3/nacos-client-basic-3.0.3.pom (1.5 kB at 6.1 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/nacos/nacos-auth-plugin/3.0.3/nacos-auth-plugin-3.0.3.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/nacos/nacos-auth-plugin/3.0.3/nacos-auth-plugin-3.0.3.pom (1.4 kB at 6.8 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/nacos/nacos-encryption-plugin/3.0.3/nacos-encryption-plugin-3.0.3.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/nacos/nacos-encryption-plugin/3.0.3/nacos-encryption-plugin-3.0.3.pom (1.4 kB at 5.6 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/nacos/nacos-log4j2-adapter/3.0.3/nacos-log4j2-adapter-3.0.3.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/nacos/nacos-log4j2-adapter/3.0.3/nacos-log4j2-adapter-3.0.3.pom (1.4 kB at 5.1 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-starter-alibaba-sentinel/2025.0.0.0/spring-cloud-starter-alibaba-sentinel-2025.0.0.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-starter-alibaba-sentinel/2025.0.0.0/spring-cloud-starter-alibaba-sentinel-2025.0.0.0.pom (7.8 kB at 31 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/fastjson2/fastjson2/2.0.58/fastjson2-2.0.58.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/fastjson2/fastjson2/2.0.58/fastjson2-2.0.58.pom (11 kB at 36 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-circuitbreaker-sentinel/2025.0.0.0/spring-cloud-circuitbreaker-sentinel-2025.0.0.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-circuitbreaker-sentinel/2025.0.0.0/spring-cloud-circuitbreaker-sentinel-2025.0.0.0.pom (4.6 kB at 18 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-alibaba-sentinel-datasource/2025.0.0.0/spring-cloud-alibaba-sentinel-datasource-2025.0.0.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/alibaba/cloud/spring-cloud-alibaba-sentinel-datasource/2025.0.0.0/spring-cloud-alibaba-sentinel-datasource-2025.0.0.0.pom (6.0 kB at 26 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-spring-boot3-starter/3.5.17/mybatis-plus-spring-boot3-starter-3.5.17.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-spring-boot3-starter/3.5.17/mybatis-plus-spring-boot3-starter-3.5.17.pom (4.0 kB at 14 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-dependencies/3.5.9/spring-boot-dependencies-3.5.9.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-dependencies/3.5.9/spring-boot-dependencies-3.5.9.pom (96 kB at 253 kB/s)
+[INFO] Artifact org.glassfish.jaxb:jaxb-bom:pom:4.0.6 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Artifact org.glassfish.jaxb:jaxb-bom:pom:4.0.6 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/glassfish/jaxb/jaxb-bom/4.0.6/jaxb-bom-4.0.6.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/glassfish/jaxb/jaxb-bom/4.0.6/jaxb-bom-4.0.6.pom (0 B at 0 B/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/apache/groovy/groovy-bom/4.0.29/groovy-bom-4.0.29.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/apache/groovy/groovy-bom/4.0.29/groovy-bom-4.0.29.pom (27 kB at 86 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/eclipse/jetty/ee10/jetty-ee10-bom/12.0.31/jetty-ee10-bom-12.0.31.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/eclipse/jetty/ee10/jetty-ee10-bom/12.0.31/jetty-ee10-bom-12.0.31.pom (9.6 kB at 34 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/eclipse/jetty/jetty-bom/12.0.31/jetty-bom-12.0.31.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/eclipse/jetty/jetty-bom/12.0.31/jetty-bom-12.0.31.pom (15 kB at 51 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/micrometer/micrometer-bom/1.15.7/micrometer-bom-1.15.7.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/micrometer/micrometer-bom/1.15.7/micrometer-bom-1.15.7.pom (8.6 kB at 34 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/micrometer/micrometer-tracing-bom/1.5.7/micrometer-tracing-bom-1.5.7.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/micrometer/micrometer-tracing-bom/1.5.7/micrometer-tracing-bom-1.5.7.pom (4.5 kB at 19 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/netty/netty-bom/4.1.130.Final/netty-bom-4.1.130.Final.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/netty/netty-bom/4.1.130.Final/netty-bom-4.1.130.Final.pom (15 kB at 66 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/apache/pulsar/pulsar-bom/4.0.8/pulsar-bom-4.0.8.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/apache/pulsar/pulsar-bom/4.0.8/pulsar-bom-4.0.8.pom (25 kB at 50 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/projectreactor/reactor-bom/2024.0.13/reactor-bom-2024.0.13.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/projectreactor/reactor-bom/2024.0.13/reactor-bom-2024.0.13.pom (4.8 kB at 20 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/amqp/spring-amqp-bom/3.2.8/spring-amqp-bom-3.2.8.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/amqp/spring-amqp-bom/3.2.8/spring-amqp-bom-3.2.8.pom (3.9 kB at 12 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/batch/spring-batch-bom/5.2.4/spring-batch-bom-5.2.4.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/batch/spring-batch-bom/5.2.4/spring-batch-bom-5.2.4.pom (3.2 kB at 6.1 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/spring-data-bom/2025.0.7/spring-data-bom-2025.0.7.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/spring-data-bom/2025.0.7/spring-data-bom-2025.0.7.pom (5.5 kB at 26 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-framework-bom/6.2.15/spring-framework-bom-6.2.15.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-framework-bom/6.2.15/spring-framework-bom-6.2.15.pom (5.8 kB at 17 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/integration/spring-integration-bom/6.5.5/spring-integration-bom-6.5.5.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/integration/spring-integration-bom/6.5.5/spring-integration-bom-6.5.5.pom (10 kB at 35 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/pulsar/spring-pulsar-bom/1.2.13/spring-pulsar-bom-1.2.13.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/pulsar/spring-pulsar-bom/1.2.13/spring-pulsar-bom-1.2.13.pom (2.9 kB at 14 kB/s)
+[INFO] Artifact org.springframework.restdocs:spring-restdocs-bom:pom:3.0.5 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Artifact org.springframework.restdocs:spring-restdocs-bom:pom:3.0.5 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/restdocs/spring-restdocs-bom/3.0.5/spring-restdocs-bom-3.0.5.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/restdocs/spring-restdocs-bom/3.0.5/spring-restdocs-bom-3.0.5.pom (0 B at 0 B/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/security/spring-security-bom/6.5.7/spring-security-bom-6.5.7.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/security/spring-security-bom/6.5.7/spring-security-bom-6.5.7.pom (5.3 kB at 19 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/session/spring-session-bom/3.5.4/spring-session-bom-3.5.4.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/session/spring-session-bom/3.5.4/spring-session-bom-3.5.4.pom (2.9 kB at 13 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/ws/spring-ws-bom/4.1.2/spring-ws-bom-4.1.2.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/ws/spring-ws-bom/4.1.2/spring-ws-bom-4.1.2.pom (2.3 kB at 12 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus/3.5.17/mybatis-plus-3.5.17.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus/3.5.17/mybatis-plus-3.5.17.pom (2.6 kB at 12 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-core/3.5.17/mybatis-plus-core-3.5.17.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-core/3.5.17/mybatis-plus-core-3.5.17.pom (2.2 kB at 9.9 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-annotation/3.5.17/mybatis-plus-annotation-3.5.17.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-annotation/3.5.17/mybatis-plus-annotation-3.5.17.pom (1.4 kB at 5.4 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-spring/3.5.17/mybatis-plus-spring-3.5.17.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-spring/3.5.17/mybatis-plus-spring-3.5.17.pom (2.7 kB at 9.6 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-extension/3.5.17/mybatis-plus-extension-3.5.17.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-extension/3.5.17/mybatis-plus-extension-3.5.17.pom (3.8 kB at 14 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/mybatis/mybatis-spring/3.0.5/mybatis-spring-3.0.5.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/mybatis/mybatis-spring/3.0.5/mybatis-spring-3.0.5.pom (15 kB at 64 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/mybatis/mybatis-parent/50/mybatis-parent-50.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/mybatis/mybatis-parent/50/mybatis-parent-50.pom (50 kB at 220 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-spring-boot-autoconfigure/3.5.17/mybatis-plus-spring-boot-autoconfigure-3.5.17.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-spring-boot-autoconfigure/3.5.17/mybatis-plus-spring-boot-autoconfigure-3.5.17.pom (3.0 kB at 11 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-spring-boot-native-image/3.5.17/mybatis-plus-spring-boot-native-image-3.5.17.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/baomidou/mybatis-plus-spring-boot-native-image/3.5.17/mybatis-plus-spring-boot-native-image-3.5.17.pom (1.2 kB at 4.8 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-starter-jdbc/3.5.15/spring-boot-starter-jdbc-3.5.15.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-starter-jdbc/3.5.15/spring-boot-starter-jdbc-3.5.15.pom (2.5 kB at 5.6 kB/s)
+[INFO] Artifact com.zaxxer:HikariCP:pom:6.3.3 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Artifact com.zaxxer:HikariCP:pom:6.3.3 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/zaxxer/HikariCP/6.3.3/HikariCP-6.3.3.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/zaxxer/HikariCP/6.3.3/HikariCP-6.3.3.pom (0 B at 0 B/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-jdbc/6.2.19/spring-jdbc-6.2.19.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/spring-jdbc/6.2.19/spring-jdbc-6.2.19.pom (2.4 kB at 9.2 kB/s)
+[INFO] Artifact com.mysql:mysql-connector-j:pom:9.7.0 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Artifact com.mysql:mysql-connector-j:pom:9.7.0 is present in the local repository, but cached from a remote repository ID that is unavailable in current build context, verifying that is downloadable from [nexus-aliyun (http://maven.aliyun.com/nexus/content/groups/public, default, releases)]
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/mysql/mysql-connector-j/9.7.0/mysql-connector-j-9.7.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/mysql/mysql-connector-j/9.7.0/mysql-connector-j-9.7.0.pom (0 B at 0 B/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/github/bonede/tree-sitter/0.26.6/tree-sitter-0.26.6.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/github/bonede/tree-sitter/0.26.6/tree-sitter-0.26.6.pom (1.4 kB at 2.1 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/github/bonede/tree-sitter-java/0.23.5/tree-sitter-java-0.23.5.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/github/bonede/tree-sitter-java/0.23.5/tree-sitter-java-0.23.5.pom (1.7 kB at 2.5 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/github/bonede/tree-sitter/0.26.3/tree-sitter-0.26.3.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/github/bonede/tree-sitter/0.26.3/tree-sitter-0.26.3.pom (1.4 kB at 2.4 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/github/bonede/tree-sitter-python/0.23.4/tree-sitter-python-0.23.4.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/github/bonede/tree-sitter-python/0.23.4/tree-sitter-python-0.23.4.pom (1.7 kB at 2.7 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/github/bonede/tree-sitter/0.24.4/tree-sitter-0.24.4.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/github/bonede/tree-sitter/0.24.4/tree-sitter-0.24.4.pom (1.4 kB at 3.7 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/bsc/langgraph4j/langgraph4j-core/1.8.27/langgraph4j-core-1.8.27.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/bsc/langgraph4j/langgraph4j-core/1.8.27/langgraph4j-core-1.8.27.pom (2.4 kB at 3.6 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/bsc/langgraph4j/langgraph4j-parent/1.8.27/langgraph4j-parent-1.8.27.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/bsc/langgraph4j/langgraph4j-parent/1.8.27/langgraph4j-parent-1.8.27.pom (11 kB at 13 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/bsc/async/async-generator/4.3.1/async-generator-4.3.1.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/bsc/async/async-generator/4.3.1/async-generator-4.3.1.pom (9.1 kB at 17 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/eclipse/jgit/org.eclipse.jgit/7.8.0.202609011348-r/org.eclipse.jgit-7.8.0.202609011348-r.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/eclipse/jgit/org.eclipse.jgit/7.8.0.202609011348-r/org.eclipse.jgit-7.8.0.202609011348-r.pom (7.7 kB at 13 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/eclipse/jgit/org.eclipse.jgit-parent/7.8.0.202609011348-r/org.eclipse.jgit-parent-7.8.0.202609011348-r.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/eclipse/jgit/org.eclipse.jgit-parent/7.8.0.202609011348-r/org.eclipse.jgit-parent-7.8.0.202609011348-r.pom (43 kB at 41 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/googlecode/javaewah/JavaEWAH/1.2.3/JavaEWAH-1.2.3.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/googlecode/javaewah/JavaEWAH/1.2.3/JavaEWAH-1.2.3.pom (6.2 kB at 29 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/commons-codec/commons-codec/1.18.0/commons-codec-1.18.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/commons-codec/commons-codec/1.18.0/commons-codec-1.18.0.pom (18 kB at 57 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/minio/minio/8.6.0/minio-8.6.0.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/minio/minio/8.6.0/minio-8.6.0.pom (3.4 kB at 11 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/xerial/snappy/snappy-java/1.1.10.7/snappy-java-1.1.10.7.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/xerial/snappy/snappy-java/1.1.10.7/snappy-java-1.1.10.7.pom (3.1 kB at 5.5 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/mapstruct/mapstruct/1.6.3/mapstruct-1.6.3.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/mapstruct/mapstruct/1.6.3/mapstruct-1.6.3.pom (1.7 kB at 8.7 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springdoc/springdoc-openapi-starter-webmvc-ui/2.9.1/springdoc-openapi-starter-webmvc-ui-2.9.1.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springdoc/springdoc-openapi-starter-webmvc-ui/2.9.1/springdoc-openapi-starter-webmvc-ui-2.9.1.pom (2.0 kB at 4.8 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springdoc/springdoc-openapi/2.9.1/springdoc-openapi-2.9.1.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springdoc/springdoc-openapi/2.9.1/springdoc-openapi-2.9.1.pom (9.0 kB at 17 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-starter-parent/3.5.16/spring-boot-starter-parent-3.5.16.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-starter-parent/3.5.16/spring-boot-starter-parent-3.5.16.pom (13 kB at 55 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-dependencies/3.5.16/spring-boot-dependencies-3.5.16.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/boot/spring-boot-dependencies/3.5.16/spring-boot-dependencies-3.5.16.pom (97 kB at 289 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/cloud/spring-cloud-function-dependencies/4.2.2/spring-cloud-function-dependencies-4.2.2.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/cloud/spring-cloud-function-dependencies/4.2.2/spring-cloud-function-dependencies-4.2.2.pom (6.8 kB at 25 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/cloud/spring-cloud-dependencies-parent/4.2.1/spring-cloud-dependencies-parent-4.2.1.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/cloud/spring-cloud-dependencies-parent/4.2.1/spring-cloud-dependencies-parent-4.2.1.pom (7.6 kB at 33 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/amqp/spring-amqp-bom/3.2.12/spring-amqp-bom-3.2.12.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/amqp/spring-amqp-bom/3.2.12/spring-amqp-bom-3.2.12.pom (3.9 kB at 15 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/spring-data-bom/2025.0.13/spring-data-bom-2025.0.13.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/data/spring-data-bom/2025.0.13/spring-data-bom-2025.0.13.pom (5.5 kB at 20 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/integration/spring-integration-bom/6.5.10/spring-integration-bom-6.5.10.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springframework/integration/spring-integration-bom/6.5.10/spring-integration-bom-6.5.10.pom (10 kB at 14 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springdoc/springdoc-openapi-starter-webmvc-api/2.9.1/springdoc-openapi-starter-webmvc-api-2.9.1.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springdoc/springdoc-openapi-starter-webmvc-api/2.9.1/springdoc-openapi-starter-webmvc-api-2.9.1.pom (2.0 kB at 4.5 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springdoc/springdoc-openapi-starter-common/2.9.1/springdoc-openapi-starter-common-2.9.1.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/springdoc/springdoc-openapi-starter-common/2.9.1/springdoc-openapi-starter-common-2.9.1.pom (5.2 kB at 11 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/swagger/core/v3/swagger-core-jakarta/2.2.55/swagger-core-jakarta-2.2.55.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/swagger/core/v3/swagger-core-jakarta/2.2.55/swagger-core-jakarta-2.2.55.pom (5.6 kB at 27 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/swagger/core/v3/swagger-project-jakarta/2.2.55/swagger-project-jakarta-2.2.55.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/swagger/core/v3/swagger-project-jakarta/2.2.55/swagger-project-jakarta-2.2.55.pom (22 kB at 84 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/swagger/core/v3/swagger-annotations-jakarta/2.2.55/swagger-annotations-jakarta-2.2.55.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/swagger/core/v3/swagger-annotations-jakarta/2.2.55/swagger-annotations-jakarta-2.2.55.pom (3.3 kB at 15 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/swagger/core/v3/swagger-models-jakarta/2.2.55/swagger-models-jakarta-2.2.55.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/io/swagger/core/v3/swagger-models-jakarta/2.2.55/swagger-models-jakarta-2.2.55.pom (3.4 kB at 11 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.21.4/jackson-dataformat-yaml-2.21.4.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/jackson/dataformat/jackson-dataformat-yaml/2.21.4/jackson-dataformat-yaml-2.21.4.pom (3.0 kB at 12 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/jackson/dataformat/jackson-dataformats-text/2.21.4/jackson-dataformats-text-2.21.4.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/com/fasterxml/jackson/dataformat/jackson-dataformats-text/2.21.4/jackson-dataformats-text-2.21.4.pom (3.5 kB at 13 kB/s)
+[INFO] Downloading from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/webjars/swagger-ui/5.32.14/swagger-ui-5.32.14.pom
+[INFO] Downloaded from nexus-aliyun: http://maven.aliyun.com/nexus/content/groups/public/org/webjars/swagger-ui/5.32.14/swagger-ui-5.32.14.pom (1.4 kB at 4.4 kB/s)
+[INFO] 
+[INFO] --- dependency:3.8.1:tree (default-cli) @ stack-probe ---
+[INFO] com.codewisdom.spike:stack-probe:pom:1.0.0
+[INFO] +- org.springframework.boot:spring-boot-starter-web:jar:3.5.15:compile
+[INFO] |  +- org.springframework.boot:spring-boot-starter:jar:3.5.15:compile
+[INFO] |  |  +- org.springframework.boot:spring-boot:jar:3.5.15:compile
+[INFO] |  |  +- org.springframework.boot:spring-boot-starter-logging:jar:3.5.15:compile
+[INFO] |  |  |  +- ch.qos.logback:logback-classic:jar:1.5.34:compile
+[INFO] |  |  |  |  \- ch.qos.logback:logback-core:jar:1.5.34:compile
+[INFO] |  |  |  +- org.apache.logging.log4j:log4j-to-slf4j:jar:2.24.3:compile
+[INFO] |  |  |  |  \- org.apache.logging.log4j:log4j-api:jar:2.24.3:compile
+[INFO] |  |  |  \- org.slf4j:jul-to-slf4j:jar:2.0.18:compile
+[INFO] |  |  +- jakarta.annotation:jakarta.annotation-api:jar:2.1.1:compile
+[INFO] |  |  +- org.springframework:spring-core:jar:6.2.19:compile
+[INFO] |  |  |  \- org.springframework:spring-jcl:jar:6.2.19:compile
+[INFO] |  |  \- org.yaml:snakeyaml:jar:2.4:compile
+[INFO] |  +- org.springframework.boot:spring-boot-starter-json:jar:3.5.15:compile
+[INFO] |  |  +- com.fasterxml.jackson.datatype:jackson-datatype-jdk8:jar:2.21.4:compile
+[INFO] |  |  +- com.fasterxml.jackson.datatype:jackson-datatype-jsr310:jar:2.21.4:compile
+[INFO] |  |  \- com.fasterxml.jackson.module:jackson-module-parameter-names:jar:2.21.4:compile
+[INFO] |  +- org.springframework.boot:spring-boot-starter-tomcat:jar:3.5.15:compile
+[INFO] |  |  +- org.apache.tomcat.embed:tomcat-embed-core:jar:10.1.55:compile
+[INFO] |  |  \- org.apache.tomcat.embed:tomcat-embed-websocket:jar:10.1.55:compile
+[INFO] |  +- org.springframework:spring-web:jar:6.2.19:compile
+[INFO] |  |  +- org.springframework:spring-beans:jar:6.2.19:compile
+[INFO] |  |  \- io.micrometer:micrometer-observation:jar:1.15.12:compile
+[INFO] |  |     \- io.micrometer:micrometer-commons:jar:1.15.12:compile
+[INFO] |  \- org.springframework:spring-webmvc:jar:6.2.19:compile
+[INFO] |     +- org.springframework:spring-aop:jar:6.2.19:compile
+[INFO] |     +- org.springframework:spring-context:jar:6.2.19:compile
+[INFO] |     \- org.springframework:spring-expression:jar:6.2.19:compile
+[INFO] +- org.springframework.boot:spring-boot-starter-validation:jar:3.5.15:compile
+[INFO] |  +- org.apache.tomcat.embed:tomcat-embed-el:jar:10.1.55:compile
+[INFO] |  \- org.hibernate.validator:hibernate-validator:jar:8.0.3.Final:compile
+[INFO] |     +- jakarta.validation:jakarta.validation-api:jar:3.0.2:compile
+[INFO] |     +- org.jboss.logging:jboss-logging:jar:3.6.3.Final:compile
+[INFO] |     \- com.fasterxml:classmate:jar:1.7.3:compile
+[INFO] +- org.springframework.boot:spring-boot-starter-amqp:jar:3.5.15:compile
+[INFO] |  +- org.springframework:spring-messaging:jar:6.2.19:compile
+[INFO] |  \- org.springframework.amqp:spring-rabbit:jar:3.2.11:compile
+[INFO] |     +- org.springframework.amqp:spring-amqp:jar:3.2.11:compile
+[INFO] |     |  \- org.springframework.retry:spring-retry:jar:2.0.13:compile
+[INFO] |     +- com.rabbitmq:amqp-client:jar:5.25.0:compile
+[INFO] |     \- org.springframework:spring-tx:jar:6.2.19:compile
+[INFO] +- org.springframework.boot:spring-boot-starter-data-redis:jar:3.5.15:compile
+[INFO] |  +- io.lettuce:lettuce-core:jar:6.6.0.RELEASE:compile
+[INFO] |  |  +- redis.clients.authentication:redis-authx-core:jar:0.1.1-beta2:compile
+[INFO] |  |  +- io.netty:netty-common:jar:4.1.135.Final:compile
+[INFO] |  |  +- io.netty:netty-handler:jar:4.1.135.Final:compile
+[INFO] |  |  |  +- io.netty:netty-resolver:jar:4.1.135.Final:compile
+[INFO] |  |  |  +- io.netty:netty-buffer:jar:4.1.135.Final:compile
+[INFO] |  |  |  +- io.netty:netty-transport-native-unix-common:jar:4.1.135.Final:compile
+[INFO] |  |  |  \- io.netty:netty-codec:jar:4.1.135.Final:compile
+[INFO] |  |  +- io.netty:netty-transport:jar:4.1.135.Final:compile
+[INFO] |  |  \- io.projectreactor:reactor-core:jar:3.7.19:compile
+[INFO] |  |     \- org.reactivestreams:reactive-streams:jar:1.0.4:compile
+[INFO] |  \- org.springframework.data:spring-data-redis:jar:3.5.12:compile
+[INFO] |     +- org.springframework.data:spring-data-keyvalue:jar:3.5.12:compile
+[INFO] |     |  \- org.springframework.data:spring-data-commons:jar:3.5.12:compile
+[INFO] |     +- org.springframework:spring-oxm:jar:6.2.19:compile
+[INFO] |     |  \- jakarta.xml.bind:jakarta.xml.bind-api:jar:4.0.5:compile
+[INFO] |     |     \- jakarta.activation:jakarta.activation-api:jar:2.1.4:compile
+[INFO] |     \- org.springframework:spring-context-support:jar:6.2.19:compile
+[INFO] +- com.alibaba.cloud:spring-cloud-starter-alibaba-nacos-discovery:jar:2025.0.0.0:compile
+[INFO] |  +- com.alibaba.cloud:spring-cloud-alibaba-commons:jar:2025.0.0.0:compile
+[INFO] |  +- com.alibaba.nacos:nacos-client:jar:3.0.3:compile
+[INFO] |  |  +- com.alibaba.nacos:nacos-client-basic:jar:3.0.3:compile
+[INFO] |  |  |  \- com.alibaba.nacos:nacos-auth-plugin:jar:3.0.3:compile
+[INFO] |  |  +- com.alibaba.nacos:nacos-encryption-plugin:jar:3.0.3:compile
+[INFO] |  |  +- com.alibaba.nacos:logback-adapter:jar:1.1.4:compile
+[INFO] |  |  +- com.alibaba.nacos:nacos-log4j2-adapter:jar:3.0.3:compile
+[INFO] |  |  +- org.apache.httpcomponents.client5:httpclient5:jar:5.5.2:compile
+[INFO] |  |  |  \- org.apache.httpcomponents.core5:httpcore5-h2:jar:5.3.6:compile
+[INFO] |  |  +- org.apache.httpcomponents.core5:httpcore5:jar:5.3.6:compile
+[INFO] |  |  +- io.prometheus:simpleclient:jar:0.16.0:compile
+[INFO] |  |  |  +- io.prometheus:simpleclient_tracer_otel:jar:0.16.0:compile
+[INFO] |  |  |  |  \- io.prometheus:simpleclient_tracer_common:jar:0.16.0:compile
+[INFO] |  |  |  \- io.prometheus:simpleclient_tracer_otel_agent:jar:0.16.0:compile
+[INFO] |  |  \- io.micrometer:micrometer-core:jar:1.15.12:compile
+[INFO] |  |     +- org.hdrhistogram:HdrHistogram:jar:2.2.2:runtime
+[INFO] |  |     \- org.latencyutils:LatencyUtils:jar:2.0.3:runtime
+[INFO] |  +- org.springframework.cloud:spring-cloud-commons:jar:4.3.3:compile
+[INFO] |  |  \- org.springframework.security:spring-security-crypto:jar:6.5.11:compile
+[INFO] |  \- org.springframework.cloud:spring-cloud-context:jar:4.3.3:compile
+[INFO] +- com.alibaba.cloud:spring-cloud-starter-alibaba-sentinel:jar:2025.0.0.0:compile
+[INFO] |  +- com.alibaba.csp:sentinel-transport-simple-http:jar:1.8.9:compile
+[INFO] |  |  \- com.alibaba.csp:sentinel-transport-common:jar:1.8.9:compile
+[INFO] |  |     +- com.alibaba.csp:sentinel-datasource-extension:jar:1.8.9:compile
+[INFO] |  |     \- com.alibaba:fastjson:jar:2.0.58:compile
+[INFO] |  |        \- com.alibaba.fastjson2:fastjson2-extension:jar:2.0.58:compile
+[INFO] |  |           \- com.alibaba.fastjson2:fastjson2:jar:2.0.58:compile
+[INFO] |  +- com.alibaba.csp:sentinel-annotation-aspectj:jar:1.8.9:compile
+[INFO] |  |  +- com.alibaba.csp:sentinel-core:jar:1.8.9:compile
+[INFO] |  |  \- org.aspectj:aspectjweaver:jar:1.9.25.1:compile
+[INFO] |  +- com.alibaba.cloud:spring-cloud-circuitbreaker-sentinel:jar:2025.0.0.0:compile
+[INFO] |  |  \- com.alibaba.csp:sentinel-reactor-adapter:jar:1.8.9:compile
+[INFO] |  +- com.alibaba.csp:sentinel-spring-webflux-adapter:jar:1.8.9:compile
+[INFO] |  +- com.alibaba.csp:sentinel-spring-webmvc-v6x-adapter:jar:1.8.9:compile
+[INFO] |  |  \- com.alibaba.csp:sentinel-web-adapter-common:jar:1.8.9:compile
+[INFO] |  +- com.alibaba.csp:sentinel-parameter-flow-control:jar:1.8.9:compile
+[INFO] |  |  \- com.googlecode.concurrentlinkedhashmap:concurrentlinkedhashmap-lru:jar:1.4.2:compile
+[INFO] |  +- com.alibaba.csp:sentinel-cluster-server-default:jar:1.8.9:compile
+[INFO] |  |  \- com.alibaba.csp:sentinel-cluster-common-default:jar:1.8.9:compile
+[INFO] |  +- com.alibaba.csp:sentinel-cluster-client-default:jar:1.8.9:compile
+[INFO] |  \- com.alibaba.cloud:spring-cloud-alibaba-sentinel-datasource:jar:2025.0.0.0:compile
+[INFO] +- com.baomidou:mybatis-plus-spring-boot3-starter:jar:3.5.17:compile
+[INFO] |  +- com.baomidou:mybatis-plus:jar:3.5.17:compile
+[INFO] |  |  +- com.baomidou:mybatis-plus-core:jar:3.5.17:compile
+[INFO] |  |  +- com.baomidou:mybatis-plus-annotation:jar:3.5.17:compile
+[INFO] |  |  +- com.baomidou:mybatis-plus-spring:jar:3.5.17:compile
+[INFO] |  |  |  \- com.baomidou:mybatis-plus-extension:jar:3.5.17:compile
+[INFO] |  |  \- org.mybatis:mybatis:jar:3.5.19:compile
+[INFO] |  +- org.mybatis:mybatis-spring:jar:3.0.5:compile
+[INFO] |  +- com.baomidou:mybatis-plus-spring-boot-autoconfigure:jar:3.5.17:compile
+[INFO] |  +- com.baomidou:mybatis-plus-spring-boot-native-image:jar:3.5.17:compile
+[INFO] |  +- org.springframework.boot:spring-boot-autoconfigure:jar:3.5.15:compile
+[INFO] |  \- org.springframework.boot:spring-boot-starter-jdbc:jar:3.5.15:compile
+[INFO] |     +- com.zaxxer:HikariCP:jar:6.3.3:compile
+[INFO] |     \- org.springframework:spring-jdbc:jar:6.2.19:compile
+[INFO] +- com.mysql:mysql-connector-j:jar:9.7.0:runtime
+[INFO] +- io.github.bonede:tree-sitter:jar:0.26.6:compile
+[INFO] +- io.github.bonede:tree-sitter-java:jar:0.23.5:compile
+[INFO] +- io.github.bonede:tree-sitter-python:jar:0.23.4:compile
+[INFO] +- org.bsc.langgraph4j:langgraph4j-core:jar:1.8.27:compile
+[INFO] |  +- org.bsc.async:async-generator:jar:4.3.1:compile
+[INFO] |  \- org.slf4j:slf4j-api:jar:2.0.18:compile
+[INFO] +- org.eclipse.jgit:org.eclipse.jgit:jar:7.8.0.202609011348-r:compile
+[INFO] |  +- com.googlecode.javaewah:JavaEWAH:jar:1.2.3:compile
+[INFO] |  \- commons-codec:commons-codec:jar:1.18.0:compile
+[INFO] +- io.minio:minio:jar:8.6.0:compile
+[INFO] |  +- com.carrotsearch.thirdparty:simple-xml-safe:jar:2.7.1:compile
+[INFO] |  +- com.google.guava:guava:jar:33.4.8-jre:compile
+[INFO] |  |  +- com.google.guava:failureaccess:jar:1.0.3:compile
+[INFO] |  |  +- com.google.guava:listenablefuture:jar:9999.0-empty-to-avoid-conflict-with-guava:compile
+[INFO] |  |  +- org.jspecify:jspecify:jar:1.0.0:compile
+[INFO] |  |  +- com.google.errorprone:error_prone_annotations:jar:2.36.0:compile
+[INFO] |  |  \- com.google.j2objc:j2objc-annotations:jar:3.0.0:compile
+[INFO] |  +- com.squareup.okhttp3:okhttp:jar:4.12.0:compile
+[INFO] |  |  +- com.squareup.okio:okio:jar:3.6.0:compile
+[INFO] |  |  |  \- com.squareup.okio:okio-jvm:jar:3.6.0:compile
+[INFO] |  |  |     \- org.jetbrains.kotlin:kotlin-stdlib-common:jar:1.9.25:compile
+[INFO] |  |  \- org.jetbrains.kotlin:kotlin-stdlib-jdk8:jar:1.9.25:compile
+[INFO] |  |     +- org.jetbrains.kotlin:kotlin-stdlib:jar:1.9.25:compile
+[INFO] |  |     |  \- org.jetbrains:annotations:jar:13.0:compile
+[INFO] |  |     \- org.jetbrains.kotlin:kotlin-stdlib-jdk7:jar:1.9.25:compile
+[INFO] |  +- com.fasterxml.jackson.core:jackson-annotations:jar:2.21:compile
+[INFO] |  +- com.fasterxml.jackson.core:jackson-core:jar:2.21.4:compile
+[INFO] |  +- com.fasterxml.jackson.core:jackson-databind:jar:2.21.4:compile
+[INFO] |  +- org.bouncycastle:bcprov-jdk18on:jar:1.81:compile
+[INFO] |  +- org.apache.commons:commons-compress:jar:1.28.0:compile
+[INFO] |  |  +- commons-io:commons-io:jar:2.20.0:compile
+[INFO] |  |  \- org.apache.commons:commons-lang3:jar:3.17.0:compile
+[INFO] |  \- org.xerial.snappy:snappy-java:jar:1.1.10.7:compile
+[INFO] +- org.mapstruct:mapstruct:jar:1.6.3:compile
+[INFO] \- org.springdoc:springdoc-openapi-starter-webmvc-ui:jar:2.9.1:compile
+[INFO]    +- org.springdoc:springdoc-openapi-starter-webmvc-api:jar:2.9.1:compile
+[INFO]    |  \- org.springdoc:springdoc-openapi-starter-common:jar:2.9.1:compile
+[INFO]    |     \- io.swagger.core.v3:swagger-core-jakarta:jar:2.2.55:compile
+[INFO]    |        +- io.swagger.core.v3:swagger-annotations-jakarta:jar:2.2.55:compile
+[INFO]    |        +- io.swagger.core.v3:swagger-models-jakarta:jar:2.2.55:compile
+[INFO]    |        \- com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:jar:2.21.4:compile
+[INFO]    +- org.webjars:swagger-ui:jar:5.32.14:compile
+[INFO]    \- org.webjars:webjars-locator-lite:jar:1.1.3:compile
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  46.571 s
+[INFO] Finished at: 2026-09-15T19:39:51+08:00
+[INFO] ------------------------------------------------------------------------
+[WARNING] 
+[WARNING] Plugin validation issues were detected in 1 plugin(s)
+[WARNING] 
+[WARNING]  * org.apache.maven.plugins:maven-site-plugin:3.12.1
+[WARNING] 
+[WARNING] For more or less details, use 'maven.plugin.validation' property with one of the values (case insensitive): [BRIEF, DEFAULT, VERBOSE]
+[WARNING] 

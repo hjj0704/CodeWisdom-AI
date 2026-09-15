@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.5.15</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.codewisdom</groupId>
+    <artifactId>codewisdom-parent</artifactId>
+    <version>1.0.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+
+    <name>CodeWisdom AI</name>
+    <description>全链路代码智能治理与多维度迭代平台</description>
+
+    <modules>
+        <module>codewisdom-common</module>
+        <module>codewisdom-gateway</module>
+        <module>codewisdom-project-resource</module>
+        <module>codewisdom-code-analysis</module>
+        <module>codewisdom-agent-orchestration</module>
+        <module>codewisdom-evaluation-export</module>
+    </modules>
+
+    <properties>
+        <java.version>17</java.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
+
+        <!-- 版本依据见 docs/tech-spike.md，均经 Maven Central 实测确认 -->
+        <spring-cloud.version>2025.0.3</spring-cloud.version>
+        <spring-cloud-alibaba.version>2025.0.0.0</spring-cloud-alibaba.version>
+
+        <langgraph4j.version>1.8.27</langgraph4j.version>
+        <tree-sitter.version>0.26.6</tree-sitter.version>
+        <tree-sitter-java.version>0.23.5</tree-sitter-java.version>
+        <jgit.version>7.8.0.202609011348-r</jgit.version>
+        <minio.version>8.6.0</minio.version>
+        <mybatis-plus.version>3.5.17</mybatis-plus.version>
+        <mapstruct.version>1.6.3</mapstruct.version>
+        <springdoc.version>2.9.1</springdoc.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Spring Cloud -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- Spring Cloud Alibaba -->
+            <dependency>
+                <groupId>com.alibaba.cloud</groupId>
+                <artifactId>spring-cloud-alibaba-dependencies</artifactId>
+                <version>${spring-cloud-alibaba.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- LangGraph4j（智能体编排） -->
+            <dependency>
+                <groupId>org.bsc.langgraph4j</groupId>
+                <artifactId>langgraph4j-bom</artifactId>
+                <version>${langgraph4j.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <!-- 本项目内部模块 -->
+            <dependency>
+                <groupId>com.codewisdom</groupId>
+                <artifactId>codewisdom-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- 代码解析 -->
+            <dependency>
+                <groupId>io.github.bonede</groupId>
+                <artifactId>tree-sitter</artifactId>
+                <version>${tree-sitter.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.github.bonede</groupId>
+                <artifactId>tree-sitter-java</artifactId>
+                <version>${tree-sitter-java.version}</version>
+            </dependency>
+
+            <!-- 仓库拉取 -->
+            <dependency>
+                <groupId>org.eclipse.jgit</groupId>
+                <artifactId>org.eclipse.jgit</artifactId>
+                <version>${jgit.version}</version>
+            </dependency>
+
+            <!-- 对象存储 -->
+            <dependency>
+                <groupId>io.minio</groupId>
+                <artifactId>minio</artifactId>
+                <version>${minio.version}</version>
+            </dependency>
+
+            <!-- 持久化 / 映射 / 文档 -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.mapstruct</groupId>
+                <artifactId>mapstruct</artifactId>
+                <version>${mapstruct.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.springdoc</groupId>
+                <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
+                <version>${springdoc.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>${lombok.version}</version>
+                            </path>
+                            <path>
+                                <groupId>org.mapstruct</groupId>
+                                <artifactId>mapstruct-processor</artifactId>
+                                <version>${mapstruct.version}</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <configuration>
+                        <!-- JDK 17 在 Windows 上默认 GBK，会导致中文日志与断言消息乱码 -->
+                        <argLine>-Dfile.encoding=UTF-8 -Duser.language=zh -Duser.country=CN</argLine>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+    </build>
+</project>

@@ -1,0 +1,40 @@
+# ---- Java / Maven ----
+target/
+*.class
+*.jar
+*.war
+*.ear
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+
+# ---- Logs ----
+logs/
+*.log
+npm-debug.log*
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Node (前端，阶段 10) ----
+node_modules/
+dist/
+.pnpm-store/
+
+# ---- 运行时产物 ----
+/data/
+/repos/
+/tmp/
+*.tmp
+.spike-tmp/

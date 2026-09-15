@@ -1,0 +1,58 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: codewisdom-gateway
+  profiles:
+    active: local
+  cloud:
+    gateway:
+      # 阶段 1B 接入 Nacos 后改为 lb:// 服务发现路由；当前为直连静态路由，
+      # 目的是让骨架在无中间件环境下也能验证"网关 -> 下游服务"的连通性。
+      routes:
+        - id: codewisdom-project-resource
+          uri: http://localhost:8081
+          predicates:
+            - Path=/api/project-resource/**
+          filters:
+            - StripPrefix=2
+        - id: codewisdom-code-analysis
+          uri: http://localhost:8082
+          predicates:
+            - Path=/api/code-analysis/**
+          filters:
+            - StripPrefix=2
+        - id: codewisdom-agent-orchestration
+          uri: http://localhost:8083
+          predicates:
+            - Path=/api/agent-orchestration/**
+          filters:
+            - StripPrefix=2
+        - id: codewisdom-evaluation-export
+          uri: http://localhost:8084
+          predicates:
+            - Path=/api/evaluation-export/**
+          filters:
+            - StripPrefix=2
+      globalcors:
+        cors-configurations:
+          '[/**]':
+            allowedOriginPatterns: "*"
+            allowedMethods: "*"
+            allowedHeaders: "*"
+            allowCredentials: true
+            maxAge: 3600
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,gateway,metrics
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-}] %logger{36} - %msg%n"
