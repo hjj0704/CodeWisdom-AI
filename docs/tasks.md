@@ -139,13 +139,29 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 
 ## 阶段 3：代码解析服务
 
-| 卡号 | 任务 | 验收 | 测试命令 |
-|---|---|---|---|
-| T-301 | Tree-Sitter 解析器封装 + 语言注册表 | Java/Python 语法包加载成功 | `mvn -q -pl code-analysis -Dtest=ParserRegistryTest test` |
-| T-302 | 提取类/接口/枚举/注解定义 | 对样例工程，类数量与包结构断言一致 | `mvn -q -pl code-analysis -Dtest=ClassExtractTest test` |
-| T-303 | 提取方法签名、参数、返回值、行号 | 方法列表与预期快照一致 | `mvn -q -pl code-analysis -Dtest=MethodExtractTest test` |
-| T-304 | 提取 import / 跨文件调用关系 | 生成调用边，无自环噪音 | `mvn -q -pl code-analysis -Dtest=CallGraphTest test` |
-| T-305 | 解析结果入库 + Redis 缓存 + 分片并行 | 大工程分片解析耗时 < 单线程基线 | `mvn -q -pl code-analysis -Dtest=ParsePipelineTest test` |
+| 卡号 | 状态 | 任务 | 验收 | 测试命令 |
+|---|---|---|---|---|
+| T-301 | ✅ | Tree-Sitter 解析器封装 + 语言注册表 | Java/Python 语法包加载成功 | `mvn -q -pl codewisdom-code-analysis -am -Dtest='LanguageRegistryTest,SourceParserTest' -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-302 | ⬜ | 提取类/接口/枚举/注解定义 | 对样例工程，类数量与包结构断言一致 | `mvn -q -pl codewisdom-code-analysis -Dtest=ClassExtractTest test` |
+| T-303 | ⬜ | 提取方法签名、参数、返回值、行号 | 方法列表与预期快照一致 | `mvn -q -pl codewisdom-code-analysis -Dtest=MethodExtractTest test` |
+| T-304 | ⬜ | 提取 import / 跨文件调用关系 | 生成调用边，无自环噪音 | `mvn -q -pl codewisdom-code-analysis -Dtest=CallGraphTest test` |
+| T-305 | ⏸️ 🐳 | **挂起** 解析结果入库 + Redis 缓存 + 分片并行 | 大工程分片解析耗时 < 单线程基线 | `mvn -q -pl codewisdom-code-analysis -Dtest=ParsePipelineTest test` |
+
+> **T-301 实现约定**（落在 `LanguageRegistry` / `SourceParser` / `ParseHandle`）：
+> 1. **grammar 缓存且永不 close**——`TSLanguage` 是只读结构可跨线程共享，
+>    但它背后的原生指针一旦释放，缓存对象再被引用会崩 JVM。
+> 2. **`TSParser` 每次新建**——它持有解析状态，非线程安全；共享会并发串数据。
+> 3. **文本提取只走 `ParseHandle.text(node)`**——Tree-Sitter 给的是 UTF-8 字节偏移，
+>    直接 `substring` 处理含中文的源码会切出乱码（见 `tech-spike.md` F-1）。
+> 4. **行号对外统一 1-based**（Tree-Sitter 原生 0-based），便于直接展示。
+> 5. **容错解析**：语法错误的文件仍返回句柄，由 `hasError()` 标识——
+>    真实项目常混有无法编译的文件，直接放弃会漏掉大量有效结构。
+
+> **实测发现（T-301 暴露，T-302/T-303 必须处理）**：
+> tree-sitter-java 中**接口方法同样是 `method_declaration`**，与类方法节点类型相同。
+> 区分方式：看父节点类型（`class_body` vs `interface_body`），或看有无 `body` 字段
+> （接口方法为抽象方法，无 body）。已由
+> `SourceParserTest.distinguishesInterfaceMethodsFromClassMethods` 锁定。
 
 ## 阶段 4：架构逆向
 
