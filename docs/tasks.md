@@ -142,7 +142,7 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 | 卡号 | 状态 | 任务 | 验收 | 测试命令 |
 |---|---|---|---|---|
 | T-301 | ✅ | Tree-Sitter 解析器封装 + 语言注册表 | Java/Python 语法包加载成功 | `mvn -q -pl codewisdom-code-analysis -am -Dtest='LanguageRegistryTest,SourceParserTest' -Dsurefire.failIfNoSpecifiedTests=false test` |
-| T-302 | ⬜ | 提取类/接口/枚举/注解定义 | 对样例工程，类数量与包结构断言一致 | `mvn -q -pl codewisdom-code-analysis -Dtest=ClassExtractTest test` |
+| T-302 | ✅ | 提取类/接口/枚举/注解/记录定义 | 对样例工程，类数量与包结构断言一致 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=JavaStructureExtractorTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-303 | ⬜ | 提取方法签名、参数、返回值、行号 | 方法列表与预期快照一致 | `mvn -q -pl codewisdom-code-analysis -Dtest=MethodExtractTest test` |
 | T-304 | ⬜ | 提取 import / 跨文件调用关系 | 生成调用边，无自环噪音 | `mvn -q -pl codewisdom-code-analysis -Dtest=CallGraphTest test` |
 | T-305 | ⏸️ 🐳 | **挂起** 解析结果入库 + Redis 缓存 + 分片并行 | 大工程分片解析耗时 < 单线程基线 | `mvn -q -pl codewisdom-code-analysis -Dtest=ParsePipelineTest test` |
@@ -157,11 +157,23 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 > 5. **容错解析**：语法错误的文件仍返回句柄，由 `hasError()` 标识——
 >    真实项目常混有无法编译的文件，直接放弃会漏掉大量有效结构。
 
-> **实测发现（T-301 暴露，T-302/T-303 必须处理）**：
+> **实测发现（T-301 暴露，T-302 已处理）**：
 > tree-sitter-java 中**接口方法同样是 `method_declaration`**，与类方法节点类型相同。
 > 区分方式：看父节点类型（`class_body` vs `interface_body`），或看有无 `body` 字段
 > （接口方法为抽象方法，无 body）。已由
 > `SourceParserTest.distinguishesInterfaceMethodsFromClassMethods` 锁定。
+
+> **T-302 实测发现**（均在 `JavaStructureExtractor` 中处理并有测试锁定）：
+> 1. **接口方法/类方法同型**（同上），T-303 抽取方法时必须处理。
+> 2. **`superclass` 节点文本含 `extends` 关键字**——实测为 `"extends BaseService"`，
+>    必须剥掉前缀，否则父类名没法直接比对。
+> 3. **带注解的类型，起始行指向注解行而非声明行**——grammar 把 `@Deprecated`
+>    放进 `modifiers` 节点，而 `modifiers` 属于 `class_declaration` 的一部分。
+>    这是 grammar 语义不是 bug，已写进测试注释避免后来者误判。
+> 4. **嵌套类是扁平并列的 `class_declaration`**，靠父子关系区分；
+>    必须用栈维护外层限定名才能算出 `demo.Outer.Inner.Deepest`。
+> 5. **测试中不写死行号常量**——改为从样例源码反查（`lineOf`），
+>    避免手数行号随样例增删漂移，也避免"抽取器错了"与"我数错了"混淆。
 
 ## 阶段 4：架构逆向
 
