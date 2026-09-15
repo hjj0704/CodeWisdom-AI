@@ -55,14 +55,19 @@ T-003 / T-008  ⏸️ 挂起，等 Docker 就绪
 
 ## 阶段 2：项目多源导入
 
-| 卡号 | 任务 | 验收 | 测试命令 |
-|---|---|---|---|
-| T-201 | 领域模型：`Project`、`ImportTask`、`FileNode` + Flyway 脚本 | 建表成功，Mapper CRUD 单测通过 | `mvn -q -pl project-resource test` |
-| T-202 | GitHub/Gitee 公开仓库导入（JGit） | 导入后 `t_file_node` 有数据，`.git/target/node_modules` 被过滤 | `mvn -q -pl project-resource -Dtest=GitImportTest test` |
-| T-203 | ZIP 上传与解压 + **Zip Slip 防护** | 正常 ZIP 解压成功；含 `../` 的恶意 ZIP 被拒绝 | `mvn -q -pl project-resource -Dtest=ZipSlipTest test` |
-| T-204 | 文件树构建 + 分类统计（源码/配置/其他） | 返回树形 JSON，节点数与磁盘一致 | `mvn -q -pl project-resource -Dtest=FileTreeTest test` |
-| T-205 | MinIO 归档：原包/源码入 `cw-source` | 对象存在且大小一致 | `mvn -q -pl project-resource -Dtest=MinioArchiveTest test` |
-| T-206 | RabbitMQ 异步投递 `cw.parse` 任务 | 消息可被消费，任务状态流转 `PENDING→RUNNING` | `mvn -q -pl project-resource -Dtest=ImportTaskMqTest test` |
+| 卡号 | 状态 | 任务 | 验收 | 测试命令 |
+|---|---|---|---|---|
+| T-201 | ✅ | 领域模型：`Project`、`ImportTask`、`FileNode` + 枚举 + Mapper + `V1__init_schema.sql` | 建表成功，Mapper CRUD 单测通过 | `mvn -q -pl codewisdom-project-resource -am -Dtest='SchemaMigrationTest,PersistenceCrudTest' -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-202 | ⬜ | GitHub/Gitee 公开仓库导入（JGit） | 导入后 `t_file_node` 有数据，`.git/target/node_modules` 被过滤 | `mvn -q -pl codewisdom-project-resource -Dtest=GitImportTest test` |
+| T-203 | ⬜ | ZIP 上传与解压 + **Zip Slip 防护** | 正常 ZIP 解压成功；含 `../` 的恶意 ZIP 被拒绝 | `mvn -q -pl codewisdom-project-resource -Dtest=ZipSlipTest test` |
+| T-204 | ⬜ | 文件树构建 + 分类统计（源码/配置/其他） | 返回树形 JSON，节点数与磁盘一致 | `mvn -q -pl codewisdom-project-resource -Dtest=FileTreeTest test` |
+| T-205 | ⏸️ 🐳 | **挂起** MinIO 归档：原包/源码入 `cw-source` | 对象存在且大小一致 | `mvn -q -pl codewisdom-project-resource -Dtest=MinioArchiveTest test` |
+| T-206 | ⏸️ 🐳 | **挂起** RabbitMQ 异步投递 `cw.parse` 任务 | 消息可被消费，任务状态流转 `PENDING→RUNNING` | `mvn -q -pl codewisdom-project-resource -Dtest=ImportTaskMqTest test` |
+
+> **T-201 持久化验证说明**：当前无 Docker，建表脚本与 Mapper 映射通过
+> **H2（MODE=MySQL）+ Flyway** 真实执行验证（9 个测试）。H2 是近似非等价，
+> 真实 MySQL 8 的验证列入 1B（见 R-13）。
+> 测试档：`src/test/resources/application-test.yml`，测试类需标 `@ActiveProfiles("test")`。
 
 ## 阶段 3：代码解析服务
 

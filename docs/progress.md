@@ -9,7 +9,7 @@
 | 阶段 0 | 技术验证与文档初始化 | ✅ **已完成** | 6 / 9（T-003、T-008 挂起） |
 | 阶段 1A | 工程骨架（零中间件） | ✅ **已完成** | 3 / 3 |
 | 阶段 1B | 中间件接入 | ⏸️ 挂起（等 Docker） | 0 / 3 |
-| 阶段 2 | 项目多源导入 | 🟡 可开工 | 0 / 6（T-205、T-206 挂起） |
+| 阶段 2 | 项目多源导入 | 🟡 进行中 | 1 / 6（T-205、T-206 挂起） |
 | 阶段 3 | 代码解析服务 | 🟡 可开工（已解锁） | 0 / 5（T-305 挂起） |
 | 阶段 4 | 架构逆向 | ⬜ 未开始 | 0 / 4 |
 | 阶段 5 | 缺陷与依赖审计 | ⬜ 未开始 | 0 / 5 |
@@ -24,13 +24,15 @@
 
 ## 2. 当前状态
 
-- **当前任务卡**：T-201（阶段 2 起点：领域模型 `Project` / `ImportTask` / `FileNode`）
-- **已完成**：T-000 文档初始化、T-001 `git init`、T-002 工程骨架、T-004~T-007 四项冒烟
-- **构建基线**：`mvn clean verify` → 7 模块全绿，26 个测试，0 失败 0 跳过
+- **当前任务卡**：T-202（Git 仓库导入：JGit 拉取 + 路径过滤 + 落文件树）
+- **已完成**：T-000 文档初始化、T-001 `git init`、T-002 工程骨架、T-004~T-007 四项冒烟、T-101/T-102/T-106（阶段 1A）、**T-201 领域模型与持久化**
+- **构建基线**：`mvn clean verify` → 7 模块全绿，**35 个测试**，0 失败 0 跳过
+- **持久化验证方案**：无 Docker 环境下用 **H2（MODE=MySQL）+ Flyway** 真实执行建表脚本，
+  已验证表结构与 CRUD 映射；H2 是近似非等价，真实 MySQL 8 验证仍留待 1B
 - **阻塞项**：
   1. ~~Docker~~ → 已接受为长期约束（R-04），🐳 卡片挂起。
-  2. **本机 `github.com` 不可达**（R-08），GitHub 导入链路本机无法验证；Gitee 正常。
-- **剩余未闭环验证**：仅 S5（MinIO）、S6（Nacos）、S7（Docker），均因缺 Docker 挂起。
+  2. **本机 `github.com` 不可达**（R-08），GitHub 导入链路本机无法验证；Gitee 正常（T-202 用 Gitee 验证）。
+- **剩余未闭环验证**：S5（MinIO）、S6（Nacos）、S7（Docker），均因缺 Docker 挂起。
 
 ## 3. 冒烟验证矩阵
 
@@ -60,6 +62,8 @@
 | 2026-09-15 | T-005 | S2 通过：Tree-Sitter 可用于 Java/Python 解析；**发现并修正字节偏移陷阱** | `codewisdom-code-analysis/**` |
 | 2026-09-15 | T-006 | S3 通过：LangGraph4j 条件分支 + 循环边 + Mermaid 生成 | `codewisdom-agent-orchestration/**` |
 | 2026-09-15 | T-007 | S4 通过：JGit 克隆 Gitee 公开仓库；**确认 github.com 不可达** | `codewisdom-project-resource/**` |
+| 2026-09-15 | T-201 | 领域模型 `Project`/`ImportTask`/`FileNode` + 枚举 + Mapper；`V1__init_schema.sql`；审计字段自动填充 | `codewisdom-project-resource/**` |
+| 2026-09-15 | T-201 | **无 Docker 持久化验证方案落地**：H2(MODE=MySQL) + Flyway 真实跑建表脚本，9 个测试全通过 | `application-test.yml`、`SchemaMigrationTest`、`PersistenceCrudTest` |
 
 ## 5. 已知风险台账
 
@@ -75,3 +79,6 @@
 | R-08 | **本机 `github.com` 不可达**，GitHub 导入链路无法验证 | 高 | S4 改用 Gitee 验证；实现时仓库源不硬编码；GitHub 支持按协议实现但标注「本机未验证」 | 🔴 开放 |
 | R-09 | **Tree-Sitter 返回 UTF-8 字节偏移**，非字符偏移 | 高 | S2 已暴露；解析层统一以 `byte[]` 切片并显式 UTF-8 解码，禁止 `String.substring` | 🟡 已定策 |
 | R-10 | 网络依赖测试在离线环境会红 | 低 | 网络测试打 `@Tag("network")` + `Assumptions` 优雅跳过；离线链路另有确定性测试覆盖 | ✅ 已定策 |
+| R-11 | **MyBatis-Plus 审计字段静默不生效**：`strictUpdateFill` 只在字段为 null 时填充，实体从库里查出再改时 `updatedAt` 不变 | 中 | 改用 `setFieldValByName` 无条件覆盖；`createdAt` 加 `updateStrategy = FieldStrategy.NEVER`；已有测试断言锁定 | ✅ 已定策 |
+| R-12 | **`LocalDateTime` 纳秒 vs 列 `DATETIME(3)` 毫秒**，导致内存值与库值不等 | 中 | 应用层统一 `truncatedTo(ChronoUnit.MILLIS)`；测试基准一律取库值而非内存值 | ✅ 已定策 |
+| R-13 | **H2 只是 MySQL 的近似**，不能保证建表脚本在真实 MySQL 8 上同样通过 | 中 | 建表脚本避开 MySQL 专有语法（索引用独立 `CREATE INDEX`）；1B 阶段必须在真实 MySQL 上重跑同一脚本 | 🟡 待 1B 闭环 |

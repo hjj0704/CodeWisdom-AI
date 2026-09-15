@@ -1,0 +1,18 @@
+# 测试档：H2 内存库（MySQL 兼容模式）
+#
+# 目的：在没有 Docker / MySQL 的环境下，仍能真实验证 Flyway 建表脚本与
+# MyBatis-Plus 映射。注意 H2 只是近似 MySQL，不能替代 1B 阶段的真实 MySQL 验证。
+spring:
+  datasource:
+    url: jdbc:h2:mem:codewisdom;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    clean-disabled: false
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true

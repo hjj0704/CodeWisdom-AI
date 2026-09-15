@@ -190,3 +190,18 @@ String text = new String(bytes, node.getStartByte(), node.getEndByte() - node.ge
 3. HITL 循环边**必须设最大轮次上限**（防死循环）；MVP 建议 5 轮，冒烟用 2 轮。
 4. 架构图（Mermaid）优先复用 `CompiledGraph.getGraph(Type.MERMAID, title, false)`，
    不要手工拼接字符串。
+
+### 9.4 持久化实现约定（MyBatis-Plus / Flyway）
+
+1. **建表脚本必须同时能在 H2(MODE=MySQL) 与 MySQL 8 上执行**：索引用独立 `CREATE INDEX`，
+   禁用内联 `KEY`、`ENGINE=`、`CHARSET=` 等 MySQL 专有语法。
+   （H2 只用于无 Docker 时的快速反馈，真实 MySQL 验证仍必须在 1B 补做。）
+2. **时间列一律用 `DATETIME(3)`**，应用层写入前 `truncatedTo(ChronoUnit.MILLIS)`，
+   避免纳秒精度在落库时被截断造成内存值与库值不等。
+3. **审计字段**：`createdAt` 用 `fill = INSERT` + `updateStrategy = FieldStrategy.NEVER`；
+   `updatedAt` 在 `updateFill` 中用 `setFieldValByName` **无条件覆盖**
+   （`strictUpdateFill` 只在 null 时填充，会导致更新后时间不变）。
+4. **枚举按 `name()` 存 VARCHAR**，不存序号——调整枚举顺序不得影响历史数据。
+5. 实体列名映射依赖 `map-underscore-to-camel-case: true`，该配置已在各服务 `application.yml` 显式声明，
+   不依赖默认值。
+6. **不引入逻辑删除**（MVP）。删除即物理删除，避免所有查询都要记得带 `deleted = 0`。

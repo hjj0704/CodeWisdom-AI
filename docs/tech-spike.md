@@ -254,6 +254,29 @@ GitHub 支持按 JGit 通用能力实现，但必须标注「本机未验证」�
 对 `gitee.com/y_project/RuoYi`：`--depth 1` 克隆约 **10 秒 / 18MB / 695 文件**（706 含 .git 内部文件）。
 → 大仓库导入必须走异步 + MQ（T-206），不可放在同步请求里。
 
+**F-8｜H2 (MODE=MySQL) + Flyway 可在无 Docker 环境验证建表与 Mapper**（等级：中，收益）
+
+`com.h2database:h2:2.3.232`（Boot 托管）配 `jdbc:h2:mem:...;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE`
+可直接跑生产用的 `V1__init_schema.sql`（Flyway `11.7.2`，无需额外 `flyway-database-h2`）。
+
+**为兼容 H2 与 MySQL，建表脚本遵循两条约束**：
+1. 索引一律用独立 `CREATE INDEX`，**不用** MySQL 的内联 `KEY (...)` 语法；
+2. 不用 `ENGINE=` / `CHARSET=` 等表选项。
+
+⚠️ **H2 是近似而非等价**：它证明的是「SQL 语法正确、列与映射符合预期」，
+**真实 MySQL 8 的验证仍必须在 1B 阶段补做**（见 R-13）。
+
+**F-9｜MyBatis-Plus 审计字段的两个真实陷阱**（等级：高，已在 T-201 踩到并修复）
+
+| 陷阱 | 现象 | 正解 |
+|---|---|---|
+| `strictUpdateFill` 只在字段为 **null** 时填充 | 实体从库查出再改时 `updatedAt` **不变**，审计失效 | `updateFill` 用 `setFieldValByName` 无条件覆盖 |
+| `LocalDateTime.now()` 是**纳秒**，列 `DATETIME(3)` 是**毫秒** | 写入再读回的值与内存值不等，断言假红 | 应用层 `truncatedTo(ChronoUnit.MILLIS)`；测试基准取库值 |
+
+补充：`createdAt` 应加 `@TableField(fill = INSERT, updateStrategy = FieldStrategy.NEVER)`，
+否则 `updateById` 会把 `created_at` 一并写回，审计字段失去不可变性。
+以上三条均已有测试锁定（`PersistenceCrudTest`）。
+
 ---
 
 ## 9. 未验证事项汇总（禁止在验证前当作既定事实）
