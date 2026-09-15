@@ -277,6 +277,37 @@ GitHub 支持按 JGit 通用能力实现，但必须标注「本机未验证」�
 否则 `updateById` 会把 `created_at` 一并写回，审计字段失去不可变性。
 以上三条均已有测试锁定（`PersistenceCrudTest`）。
 
+**F-10｜Windows 上 Git pack 文件带只读属性**（等级：高，T-202 踩到并修复）
+
+Git 写出的 `.git/objects/pack/*.pack|.idx` 在 Windows 上被标记为**只读**，
+`Files.deleteIfExists` 遇到只读文件抛 `AccessDeniedException`。后果有两个，都很隐蔽：
+
+| 现象 | 为什么难发现 |
+|---|---|
+| **重新导入同一项目必然失败**（工作区清空步骤抛异常） | 第一次导入永远是好的，坑在第二次 |
+| **`mvn clean` 删不掉 `target/`**，构建直接中断 | 只有把测试工作区放在 `target/` 下才会遇到 |
+
+**正解**：删除前逐个清掉只读位——
+```java
+path.toFile().setWritable(true);
+Files.deleteIfExists(path);
+```
+**并且测试工作区不要放在 `target/` 下**，改用系统临时目录 + `@AfterAll` 清理
+（见 `TestWorkspaces`）。已有回归测试锁死：`GitRepoFetcherTest.reclonesIntoExistingWorkspace`。
+
+**F-11｜真实仓库导入实测**（等级：中，T-202 证据）
+
+`https://gitee.com/y_project/RuoYi.git` 经完整链路（http 校验 → 浅克隆 → 剪枝 → 建树 → 落库）导入：
+
+| 指标 | 实测值 |
+|---|---|
+| 检出分支 / HEAD | `master` / `7995a83e04e1a88aaea5a8a7c50570dffcb145e0` |
+| 纳入文件数 | **624**（原工作区 695 文件，剪掉 `.git` 等 71 个） |
+| 纳入总体积 | **9.1 MB** |
+| 耗时 | 约 14 秒（含克隆） |
+
+→ 印证 F-7 的结论：**导入必须异步化**（T-206），不可长期放在同步请求里（风险 R-15）。
+
 ---
 
 ## 9. 未验证事项汇总（禁止在验证前当作既定事实）

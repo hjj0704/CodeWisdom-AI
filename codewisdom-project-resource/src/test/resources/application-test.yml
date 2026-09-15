@@ -16,3 +16,16 @@ spring:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+
+codewisdom:
+  import:
+    # 工作区放在系统临时目录，不放 target/——Git 写出的 pack 文件带只读属性，
+    # 会让 maven-clean-plugin 删除 target 时直接失败，把构建卡死。
+    # 清理由测试类的 @AfterAll 负责（见 TestWorkspaces）。
+    workspace-root: ${java.io.tmpdir}/codewisdom-test-repos
+    # 测试用本地 file:// 仓库，需要放行非 http(s)；生产配置保持 false
+    allow-private-network: true
+    allowed-hosts:
+      - github.com
+      - gitee.com
+    clone-timeout-seconds: 60

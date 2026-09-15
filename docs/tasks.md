@@ -58,7 +58,7 @@ T-003 / T-008  ⏸️ 挂起，等 Docker 就绪
 | 卡号 | 状态 | 任务 | 验收 | 测试命令 |
 |---|---|---|---|---|
 | T-201 | ✅ | 领域模型：`Project`、`ImportTask`、`FileNode` + 枚举 + Mapper + `V1__init_schema.sql` | 建表成功，Mapper CRUD 单测通过 | `mvn -q -pl codewisdom-project-resource -am -Dtest='SchemaMigrationTest,PersistenceCrudTest' -Dsurefire.failIfNoSpecifiedTests=false test` |
-| T-202 | ⬜ | GitHub/Gitee 公开仓库导入（JGit） | 导入后 `t_file_node` 有数据，`.git/target/node_modules` 被过滤 | `mvn -q -pl codewisdom-project-resource -Dtest=GitImportTest test` |
+| T-202 | ✅ | GitHub/Gitee 公开仓库导入（JGit）+ SSRF 防护 + 路径剪枝 | 导入后 `t_file_node` 有数据，`.git/target/node_modules` 被过滤 | 见下方「T-202 验证命令」 |
 | T-203 | ⬜ | ZIP 上传与解压 + **Zip Slip 防护** | 正常 ZIP 解压成功；含 `../` 的恶意 ZIP 被拒绝 | `mvn -q -pl codewisdom-project-resource -Dtest=ZipSlipTest test` |
 | T-204 | ⬜ | 文件树构建 + 分类统计（源码/配置/其他） | 返回树形 JSON，节点数与磁盘一致 | `mvn -q -pl codewisdom-project-resource -Dtest=FileTreeTest test` |
 | T-205 | ⏸️ 🐳 | **挂起** MinIO 归档：原包/源码入 `cw-source` | 对象存在且大小一致 | `mvn -q -pl codewisdom-project-resource -Dtest=MinioArchiveTest test` |
@@ -68,6 +68,24 @@ T-003 / T-008  ⏸️ 挂起，等 Docker 就绪
 > **H2（MODE=MySQL）+ Flyway** 真实执行验证（9 个测试）。H2 是近似非等价，
 > 真实 MySQL 8 的验证列入 1B（见 R-13）。
 > 测试档：`src/test/resources/application-test.yml`，测试类需标 `@ActiveProfiles("test")`。
+
+**T-202 验证命令**：
+
+```bash
+# 全量（含真实 Gitee 导入，需外网）
+mvn -B -pl codewisdom-project-resource -am test
+
+# 只跑离线部分（不依赖外网）
+mvn -B -pl codewisdom-project-resource -am -Dtest='RepoUrlValidatorTest,ImportRulesTest,FileTreeScannerTest,GitRepoFetcherTest,GitImportIntegrationTest' -Dsurefire.failIfNoSpecifiedTests=false test
+```
+
+**T-202 实测证据**：导入 `https://gitee.com/y_project/RuoYi.git` →
+624 文件 / 9.1MB / `master` / head `7995a83e`，`.git`、`target`、二进制全部被剪掉。
+
+> **注意**：SSRF 防护的校验顺序是「协议 → 凭据 → 端口 → 敏感主机名 → 域名白名单 → 解析后 IP」。
+> 仅做域名白名单不足以防 SSRF（DNS 可被劫持到内网），**必须校验解析后的真实 IP**，
+> 并注意后缀匹配要用 `.域名` 边界，否则 `evilgithub.com` 会被误放行。
+> 回归测试：`RepoUrlValidatorTest`。
 
 ## 阶段 3：代码解析服务
 

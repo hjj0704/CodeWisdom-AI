@@ -22,6 +22,23 @@ mybatis-plus:
   global-config:
     banner: false
 
+codewisdom:
+  import:
+    # 仓库托管域名白名单。留空表示不限域名（仅靠"禁解析到内网"防护），不建议。
+    allowed-hosts:
+      - github.com
+      - gitee.com
+      - gitlab.com
+      - bitbucket.org
+      - codeberg.org
+    # 生产环境必须保持 false，否则可被用于探测内网服务（SSRF）
+    allow-private-network: false
+    max-file-size: 2097152
+    max-files: 20000
+    clone-timeout-seconds: 180
+    clone-depth: 1
+    workspace-root: ./data/repos
+
 logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-}] %logger{36} - %msg%n"
