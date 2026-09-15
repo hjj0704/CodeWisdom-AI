@@ -32,8 +32,16 @@ class SchemaMigrationTest {
     @DisplayName("Flyway 迁移成功且三张业务表全部可查询")
     void flywayCreatesAllTables() {
         for (String table : EXPECTED_TABLES) {
-            Integer count = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class);
-            assertThat(count).as("表 %s 应存在且可查询", table).isNotNull().isZero();
+            // 断言「表存在」，而不是「表为空」——H2 内存库在本模块所有测试类间共享，
+            // 别处插过的数据会让「为空」这类断言随执行顺序飘红。
+            Integer exists = jdbcTemplate.queryForObject(
+                    "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = ?",
+                    Integer.class, table);
+            assertThat(exists).as("表 %s 应存在", table).isEqualTo(1);
+
+            // 再确认真的能查（列定义、权限都正常）
+            Integer rowCount = jdbcTemplate.queryForObject("SELECT COUNT(*) FROM " + table, Integer.class);
+            assertThat(rowCount).as("表 %s 应可查询", table).isNotNull().isGreaterThanOrEqualTo(0);
         }
     }
 

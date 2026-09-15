@@ -60,7 +60,7 @@ T-003 / T-008  ⏸️ 挂起，等 Docker 就绪
 | T-201 | ✅ | 领域模型：`Project`、`ImportTask`、`FileNode` + 枚举 + Mapper + `V1__init_schema.sql` | 建表成功，Mapper CRUD 单测通过 | `mvn -q -pl codewisdom-project-resource -am -Dtest='SchemaMigrationTest,PersistenceCrudTest' -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-202 | ✅ | GitHub/Gitee 公开仓库导入（JGit）+ SSRF 防护 + 路径剪枝 | 导入后 `t_file_node` 有数据，`.git/target/node_modules` 被过滤 | 见下方「T-202 验证命令」 |
 | T-203 | ✅ | ZIP 上传与解压 + **Zip Slip / Zip Bomb 防护** | 正常 ZIP 解压成功；含 `../` 的恶意 ZIP 被拒绝 | 见下方「T-203 验证命令」 |
-| T-204 | ⬜ | 文件树构建 + 分类统计（源码/配置/其他） | 返回树形 JSON，节点数与磁盘一致 | `mvn -q -pl codewisdom-project-resource -Dtest=FileTreeTest test` |
+| T-204 | ✅ | 文件树查询接口 + 分类统计（树形 JSON / 子树 / depth / stats） | 返回树形 JSON，节点数与磁盘一致 | 见下方「T-204 验证命令」 |
 | T-205 | ⏸️ 🐳 | **挂起** MinIO 归档：原包/源码入 `cw-source` | 对象存在且大小一致 | `mvn -q -pl codewisdom-project-resource -Dtest=MinioArchiveTest test` |
 | T-206 | ⏸️ 🐳 | **挂起** RabbitMQ 异步投递 `cw.parse` 任务 | 消息可被消费，任务状态流转 `PENDING→RUNNING` | `mvn -q -pl codewisdom-project-resource -Dtest=ImportTaskMqTest test` |
 
@@ -113,6 +113,29 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='ZipExtractorTest,ZipImportInt
 > **设计要点**：条目名合法性可以廉价预检，因此放在创建项目记录之前；
 > 压缩炸弹无法预判（声明的 size 会撒谎），只能边写边熔断，那类输入会留下一条
 > FAILED 记录——这是期望行为，便于审计。
+
+**T-204 验证命令**：
+
+```bash
+mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsurefire.failIfNoSpecifiedTests=false test
+```
+
+**T-204 接口**：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/projects/{id}/tree` | 整树；返回**虚拟根**（id 为 null，代表项目本身），子节点为一级条目 |
+| GET | `/projects/{id}/tree?depth=1` | 限制展开层级；1 = 只返回一级条目 |
+| GET | `/projects/{id}/tree?path=src/main/java` | 只返回该路径的子树 |
+| GET | `/projects/{id}/stats` | 分类统计：节点数、体积、按分类、按语言、最大层级 |
+
+**实现要点**：
+1. **一次查询、内存组装**——不做逐层递归查子节点（典型 N+1）。单项目节点数有硬上限
+   （`codewisdom.import.max-files`，默认 20000），全量加载是有界的。
+2. 也因此**没有为 `path` 建索引**：MySQL 8 下 `VARCHAR(1024)` 全列索引超出键长上限，
+   要建就得用前缀索引，而 H2 不支持该语法，会破坏「同一份建表脚本两边都能跑」的约定。
+3. 排序固定为「目录在前，同类按名称升序」，保证输出稳定可比对。
+4. 统计口径与 `t_project` 的冗余计数字段一致，测试中有对账断言。
 
 ## 阶段 3：代码解析服务
 
