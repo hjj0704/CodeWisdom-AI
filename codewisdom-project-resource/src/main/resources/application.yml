@@ -6,6 +6,12 @@ spring:
     name: codewisdom-project-resource
   profiles:
     active: local
+  servlet:
+    multipart:
+      # Boot 默认单文件上限仅 1MB，源码压缩包远超此值
+      max-file-size: 200MB
+      max-request-size: 210MB
+      file-size-threshold: 2MB
 
 management:
   endpoints:

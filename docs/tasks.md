@@ -59,7 +59,7 @@ T-003 / T-008  ⏸️ 挂起，等 Docker 就绪
 |---|---|---|---|---|
 | T-201 | ✅ | 领域模型：`Project`、`ImportTask`、`FileNode` + 枚举 + Mapper + `V1__init_schema.sql` | 建表成功，Mapper CRUD 单测通过 | `mvn -q -pl codewisdom-project-resource -am -Dtest='SchemaMigrationTest,PersistenceCrudTest' -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-202 | ✅ | GitHub/Gitee 公开仓库导入（JGit）+ SSRF 防护 + 路径剪枝 | 导入后 `t_file_node` 有数据，`.git/target/node_modules` 被过滤 | 见下方「T-202 验证命令」 |
-| T-203 | ⬜ | ZIP 上传与解压 + **Zip Slip 防护** | 正常 ZIP 解压成功；含 `../` 的恶意 ZIP 被拒绝 | `mvn -q -pl codewisdom-project-resource -Dtest=ZipSlipTest test` |
+| T-203 | ✅ | ZIP 上传与解压 + **Zip Slip / Zip Bomb 防护** | 正常 ZIP 解压成功；含 `../` 的恶意 ZIP 被拒绝 | 见下方「T-203 验证命令」 |
 | T-204 | ⬜ | 文件树构建 + 分类统计（源码/配置/其他） | 返回树形 JSON，节点数与磁盘一致 | `mvn -q -pl codewisdom-project-resource -Dtest=FileTreeTest test` |
 | T-205 | ⏸️ 🐳 | **挂起** MinIO 归档：原包/源码入 `cw-source` | 对象存在且大小一致 | `mvn -q -pl codewisdom-project-resource -Dtest=MinioArchiveTest test` |
 | T-206 | ⏸️ 🐳 | **挂起** RabbitMQ 异步投递 `cw.parse` 任务 | 消息可被消费，任务状态流转 `PENDING→RUNNING` | `mvn -q -pl codewisdom-project-resource -Dtest=ImportTaskMqTest test` |
@@ -86,6 +86,33 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='RepoUrlValidatorTest,ImportRu
 > 仅做域名白名单不足以防 SSRF（DNS 可被劫持到内网），**必须校验解析后的真实 IP**，
 > 并注意后缀匹配要用 `.域名` 边界，否则 `evilgithub.com` 会被误放行。
 > 回归测试：`RepoUrlValidatorTest`。
+
+**T-203 验证命令**：
+
+```bash
+mvn -B -pl codewisdom-project-resource -am -Dtest='ZipExtractorTest,ZipImportIntegrationTest' -Dsurefire.failIfNoSpecifiedTests=false test
+```
+
+**T-203 安全验收清单**（`ZipExtractorTest` 逐条覆盖）：
+
+| 攻击手法 | 防御 | 关键断言 |
+|---|---|---|
+| `../escaped.txt` 相对穿越 | 规范化后必须仍在目标目录内 | 抛异常 **且目标目录外不生成文件** |
+| `a/b/../../../escaped.txt` 深层穿越 | 同上（`contains("..")` 挡不住这类写法） | 同上 |
+| `/etc/passwd` 绝对路径 | 显式拒绝前导 `/` | 同上 |
+| `C:/escaped.txt` 盘符 | 显式拒绝 `^[A-Za-z]:` | 同上 |
+| `..\escaped.txt` 反斜杠 | 统一转 `/` 后再规范化 | 同上 |
+| `sub/..` 指向根 | 拒绝解析结果等于目标目录的条目 | 抛异常 |
+| NUL / `<>:"\|?*` 畸形名 | 字符白名单 | 抛异常 |
+| Zip Bomb（总量） | 边写边统计实际字节，超限熔断 | 抛异常 |
+| Zip Bomb（压缩比） | `min(配置总量, 包体×压缩比上限)` | 小包大解被拦 |
+| 条目数爆炸 | 条目数上限 | 抛异常 |
+| 非 ZIP / 损坏文件 | 魔数校验（`PK\x03\x04` 等） | 抛异常 |
+| 恶意包污染业务数据 | 条目名预检在建项目**之前**执行 | 路径穿越包**不产生项目记录** |
+
+> **设计要点**：条目名合法性可以廉价预检，因此放在创建项目记录之前；
+> 压缩炸弹无法预判（声明的 size 会撒谎），只能边写边熔断，那类输入会留下一条
+> FAILED 记录——这是期望行为，便于审计。
 
 ## 阶段 3：代码解析服务
 

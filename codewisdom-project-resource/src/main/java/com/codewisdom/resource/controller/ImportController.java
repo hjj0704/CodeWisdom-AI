@@ -5,10 +5,14 @@ import com.codewisdom.resource.dto.GitImportRequest;
 import com.codewisdom.resource.dto.ImportResult;
 import com.codewisdom.resource.service.ImportService;
 import jakarta.validation.Valid;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 项目导入接口。
@@ -32,5 +36,20 @@ public class ImportController {
     @PostMapping("/git")
     public R<ImportResult> importFromGit(@Valid @RequestBody GitImportRequest request) {
         return R.ok(importService.importFromGit(request));
+    }
+
+    /**
+     * 上传 ZIP 压缩包导入项目。
+     *
+     * <p>压缩包是不可信输入，解压前会做路径穿越（Zip Slip）与压缩炸弹防护，
+     * 详见 {@code ZipExtractor}。
+     *
+     * @param file ZIP 文件
+     * @param name 项目显示名；留空则用压缩包文件名
+     */
+    @PostMapping(value = "/zip", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public R<ImportResult> importFromZip(@RequestPart("file") MultipartFile file,
+                                         @RequestParam(value = "name", required = false) String name) {
+        return R.ok(importService.importFromZip(file, name));
     }
 }

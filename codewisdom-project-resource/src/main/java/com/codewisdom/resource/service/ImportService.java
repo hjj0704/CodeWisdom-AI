@@ -15,6 +15,7 @@ import com.codewisdom.resource.entity.ImportTask;
 import com.codewisdom.resource.entity.Project;
 import com.codewisdom.resource.importer.FileTreeScanner;
 import com.codewisdom.resource.importer.GitRepoFetcher;
+import com.codewisdom.resource.importer.ZipExtractor;
 import com.codewisdom.resource.mapper.FileNodeMapper;
 import com.codewisdom.resource.mapper.ImportTaskMapper;
 import com.codewisdom.resource.mapper.ProjectMapper;
@@ -23,17 +24,22 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -57,6 +63,7 @@ public class ImportService {
 
     private final RepoUrlValidator urlValidator;
     private final GitRepoFetcher fetcher;
+    private final ZipExtractor zipExtractor;
     private final FileTreeScanner scanner;
     private final ProjectMapper projectMapper;
     private final ImportTaskMapper importTaskMapper;
@@ -66,6 +73,7 @@ public class ImportService {
 
     public ImportService(RepoUrlValidator urlValidator,
                          GitRepoFetcher fetcher,
+                         ZipExtractor zipExtractor,
                          FileTreeScanner scanner,
                          ProjectMapper projectMapper,
                          ImportTaskMapper importTaskMapper,
@@ -74,6 +82,7 @@ public class ImportService {
                          ImportProperties properties) {
         this.urlValidator = urlValidator;
         this.fetcher = fetcher;
+        this.zipExtractor = zipExtractor;
         this.scanner = scanner;
         this.projectMapper = projectMapper;
         this.importTaskMapper = importTaskMapper;
@@ -94,7 +103,7 @@ public class ImportService {
         ImportTask task = createTask(project.getId());
         log.info("开始导入 projectId={} taskId={} url={}", project.getId(), task.getId(), repoUri.getHost());
 
-        Path workspace = Paths.get(properties.getWorkspaceRoot()).resolve(String.valueOf(project.getId()));
+        Path workspace = workspaceOf(project.getId());
 
         try {
             markTaskRunning(task);
@@ -102,7 +111,7 @@ public class ImportService {
             FileTreeScanner.ScanResult scanned = scanner.scan(fetched.workspace());
 
             transactionTemplate.executeWithoutResult(status ->
-                    persistSuccess(project, task, fetched, scanned));
+                    persistSuccess(project, task, fetched.branch(), fetched.headCommit(), scanned));
 
             return new ImportResult(project.getId(), task.getId(), ImportTaskStatus.SUCCESS,
                     fetched.branch(), fetched.headCommit(),
@@ -117,25 +126,92 @@ public class ImportService {
         }
     }
 
+    /**
+     * 从上传的 ZIP 压缩包导入项目。
+     *
+     * <p>与 Git 导入共用「建记录 → 准备源码 → 建树 → 落库」的骨架，
+     * 差异只在中间那步：这里是落盘 + 安全解压。压缩包是不可信输入，
+     * 路径穿越与压缩炸弹的防护都在 {@link ZipExtractor} 里。
+     *
+     * @param file 上传的 ZIP
+     * @param name 项目显示名；留空则用压缩包文件名
+     */
+    public ImportResult importFromZip(MultipartFile file, String name) {
+        String originalName = file.getOriginalFilename();
+        validateArchive(file, originalName);
+
+        // 先把「畸形条目名」这类恶意包拒掉，再建业务记录——
+        // 否则攻击者能用一批畸形包刷出满库的失败项目（见 ZipExtractor#validateEntryNames）
+        try (InputStream in = file.getInputStream()) {
+            zipExtractor.validateEntryNames(in);
+        } catch (IOException e) {
+            throw BizException.of(ErrorCode.ARCHIVE_INVALID, "压缩包不可读: " + e.getMessage(), e);
+        }
+
+        Project project = createArchiveProject(resolveArchiveName(name, originalName));
+        ImportTask task = createTask(project.getId());
+
+        Path workspace = workspaceOf(project.getId());
+        Path archivePath = workspace.resolve("upload.zip");
+        Path extractDir = workspace.resolve("repo");
+
+        try {
+            markTaskRunning(task);
+            saveUpload(file, archivePath);
+
+            ZipExtractor.ExtractResult extracted = zipExtractor.extract(archivePath, extractDir);
+            FileTreeScanner.ScanResult scanned = scanner.scan(extracted.targetDir());
+
+            transactionTemplate.executeWithoutResult(status ->
+                    persistSuccess(project, task, null, null, scanned));
+
+            log.info("ZIP 导入完成 projectId={} entries={} files={}",
+                    project.getId(), extracted.entries(), scanned.fileCount());
+            return new ImportResult(project.getId(), task.getId(), ImportTaskStatus.SUCCESS,
+                    null, null, scanned.fileCount(), scanned.totalSize(), "导入成功");
+        } catch (BizException e) {
+            return fail(project, task, e.getErrorCode(), e.getMessage());
+        } catch (IOException e) {
+            return fail(project, task, ErrorCode.IMPORT_ERROR, "压缩包处理失败: " + e.getMessage());
+        } catch (RuntimeException e) {
+            log.error("ZIP 导入发生未预期异常 projectId={}", project.getId(), e);
+            return fail(project, task, ErrorCode.SYSTEM_ERROR, "导入失败: " + e.getMessage());
+        }
+    }
+
     // ---- 阶段 1：建项目与任务 ----
 
     private Project createProject(URI repoUri, GitImportRequest request) {
         return transactionTemplate.execute(status -> {
-            Project project = new Project();
-            project.setName(resolveName(request.name(), repoUri));
-            project.setSourceType(SourceType.GIT);
+            Project project = newProject(resolveName(request.name(), repoUri), SourceType.GIT);
             project.setSourceUrl(repoUri.toString());
             project.setDefaultBranch(blankToNull(request.branch()));
-            project.setStatus(ProjectStatus.IMPORTING);
-            project.setStorageBucket("cw-source");
-            // 用 UUID 而非自增 id 拼前缀：id 要等插入后才知道，而 storage_prefix 是 NOT NULL，
-            // 用 id 就必须「先插后改」两次写。UUID 还能避免对象存储键暴露项目数量。
-            project.setStoragePrefix("projects/" + UUID.randomUUID() + "/");
-            project.setFileCount(0);
-            project.setTotalSize(0L);
             projectMapper.insert(project);
             return project;
         });
+    }
+
+    private Project createArchiveProject(String name) {
+        return transactionTemplate.execute(status -> {
+            Project project = newProject(name, SourceType.ZIP);
+            projectMapper.insert(project);
+            return project;
+        });
+    }
+
+    /** 建项目实体。{@code storage_prefix} 是 NOT NULL，故在插入前就填好。 */
+    private static Project newProject(String name, SourceType sourceType) {
+        Project project = new Project();
+        project.setName(name);
+        project.setSourceType(sourceType);
+        project.setStatus(ProjectStatus.IMPORTING);
+        project.setStorageBucket("cw-source");
+        // 用 UUID 而非自增 id 拼前缀：id 要等插入后才知道，而 storage_prefix 是 NOT NULL，
+        // 用 id 就必须「先插后改」两次写。UUID 还能避免对象存储键暴露项目数量。
+        project.setStoragePrefix("projects/" + UUID.randomUUID() + "/");
+        project.setFileCount(0);
+        project.setTotalSize(0L);
+        return project;
     }
 
     private ImportTask createTask(Long projectId) {
@@ -164,7 +240,8 @@ public class ImportService {
 
     private void persistSuccess(Project project,
                                 ImportTask task,
-                                GitRepoFetcher.FetchResult fetched,
+                                String branch,
+                                String headCommit,
                                 FileTreeScanner.ScanResult scanned) {
         // 重新导入时先清空旧文件树，避免新旧节点混在一起
         fileNodeMapper.delete(new LambdaQueryWrapper<FileNode>()
@@ -173,7 +250,9 @@ public class ImportService {
         persistTree(project.getId(), scanned.roots());
 
         project.setStatus(ProjectStatus.READY);
-        project.setDefaultBranch(fetched.branch());
+        if (branch != null) {
+            project.setDefaultBranch(branch);
+        }
         project.setFileCount(scanned.fileCount());
         project.setTotalSize(scanned.totalSize());
         projectMapper.updateById(project);
@@ -234,6 +313,43 @@ public class ImportService {
     }
 
     // ---- 工具 ----
+
+    private Path workspaceOf(Long projectId) {
+        return Paths.get(properties.getWorkspaceRoot()).resolve(String.valueOf(projectId));
+    }
+
+    /** 上传前置校验：空文件与非 .zip 一律在落盘前拒掉，不浪费磁盘与解压开销。 */
+    private static void validateArchive(MultipartFile file, String originalName) {
+        if (file == null || file.isEmpty()) {
+            throw BizException.of(ErrorCode.ARCHIVE_INVALID, "上传文件为空");
+        }
+        if (originalName == null || !originalName.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+            throw BizException.of(ErrorCode.ARCHIVE_INVALID, "仅支持 .zip 压缩包");
+        }
+    }
+
+    /** 项目名：优先用请求指定的，其次用压缩包文件名（去掉 .zip）。 */
+    static String resolveArchiveName(String requestedName, String originalFilename) {
+        if (requestedName != null && !requestedName.isBlank()) {
+            return requestedName.trim();
+        }
+        if (originalFilename == null || originalFilename.isBlank()) {
+            return "未命名压缩包项目";
+        }
+        String base = originalFilename.replace('\\', '/');
+        base = base.substring(base.lastIndexOf('/') + 1);
+        if (base.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+            base = base.substring(0, base.length() - 4);
+        }
+        return base.isBlank() ? "未命名压缩包项目" : base;
+    }
+
+    private static void saveUpload(MultipartFile file, Path target) throws IOException {
+        Files.createDirectories(target.getParent());
+        try (InputStream in = file.getInputStream()) {
+            Files.copy(in, target, StandardCopyOption.REPLACE_EXISTING);
+        }
+    }
 
     /** {@code a/b/c.java} → {@code a/b}；根节点返回 null。 */
     static String parentPathOf(String path) {

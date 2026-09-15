@@ -308,6 +308,31 @@ Files.deleteIfExists(path);
 
 → 印证 F-7 的结论：**导入必须异步化**（T-206），不可长期放在同步请求里（风险 R-15）。
 
+**F-12｜JDK `ZipInputStream` 对非 ZIP 输入不报错**（等级：中，T-203 踩到并修复）
+
+`new ZipInputStream(in).getNextEntry()` 读非 ZIP 数据时**返回 null 而不抛异常**，
+于是「用户传了个 jpg，系统提示导入成功、0 个文件」。必须自行校验魔数：
+
+```java
+// PK\x03\x04 普通条目 / PK\x05\x06 空压缩包 / PK\x07\x08 分卷
+byte[] header = buffered.readNBytes(4);   // 需先 mark/reset，否则流已被消耗
+```
+
+该行为无法从类型系统或文档察觉，只能靠测试发现——`ZipExtractorTest.rejectsNonZipFile` 已锁定。
+
+**F-13｜Zip Slip 与 Zip Bomb 的实测防御要点**（等级：高）
+
+| 要点 | 说明 |
+|---|---|
+| **只做 `contains("..")` 不够** | `a/b/../../../x` 这类写法绕得过朴素字符串检查，必须「规范化后仍在目标目录内」 |
+| **绝对路径与盘符要单独拒** | `/etc/passwd`、`C:/x` 在 Windows 上都会脱离目标目录 |
+| **反斜杠要统一转 `/`** | `..\x` 与 `../x` 等价，不转换会漏判 |
+| **不能用 `ZipEntry.getSize()` 判断炸弹** | 那是包自己声明的大小，可以撒谎；只有实际写出的字节可信 |
+| **只限总量挡不住炸弹** | 小包大解会在触达总量上限前先撑爆磁盘，必须同时限压缩比 |
+| **符号链接无需特判** | 用 `OutputStream` 写内容而非 `Files.createSymbolicLink`，链接项退化为普通文件 |
+
+实测覆盖 19 个用例（`ZipExtractorTest`），含 6 种穿越写法 + 3 类炸弹 + 畸形名 + 损坏输入。
+
 ---
 
 ## 9. 未验证事项汇总（禁止在验证前当作既定事实）

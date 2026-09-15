@@ -48,4 +48,20 @@ public class ImportProperties {
 
     /** 仓库工作区存放根目录。 */
     private String workspaceRoot = "./data/repos";
+
+    // ---- 压缩包解压限制（防 Zip Slip 之外的 Zip Bomb）----
+
+    /** 单个压缩包允许的最大条目数（默认 50000）。 */
+    private int maxArchiveEntries = 50_000;
+
+    /** 解压后允许的最大总字节数（默认 512 MiB）。 */
+    private long maxUncompressedSize = 512L * 1024 * 1024;
+
+    /**
+     * 允许的最大压缩比（解压后总字节 / 压缩包字节，默认 200）。
+     *
+     * <p>防的是「几十 KB 的包解出几十 GB」这类炸弹——只限总量不够，
+     * 因为炸弹可以在触发总量上限前就把磁盘写满。
+     */
+    private int maxCompressionRatio = 200;
 }
