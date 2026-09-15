@@ -4,6 +4,9 @@
 
 ## 0. 恢复指引（2026-09-15 收工）
 
+> **一页版清单见 [`docs/STATUS.md`](STATUS.md)** —— 完成度看板、逐卡状态、红线提醒。
+> 本节是简版，两份内容一致，任选其一发给 Claude 即可。
+
 **明日从这里开始**：
 
 1. 读 `CLAUDE.md` → `docs/progress.md`（本节）→ `docs/tasks.md`（阶段 3）。

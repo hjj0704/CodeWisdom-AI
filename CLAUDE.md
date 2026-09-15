@@ -76,14 +76,17 @@ CodeWisdom AI：基于 Java 微服务 + 多智能体编排的全链路代码智�
 
 ## 7. 文档索引
 
+> **开工第一件事**：读 `docs/STATUS.md` —— 一页看清哪里做完了、哪里没做完、下一张卡是什么。
+
 | 文件 | 用途 |
 |---|---|
+| **`docs/STATUS.md`** | **进度清单：完成度看板、逐卡状态、明日恢复指引、红线提醒** |
 | `docs/spec.md` | 规范版需求（已有，第 9 节为技术验证结论） |
-| `docs/architecture.md` | 微服务拆分、模块职责、MVP 范围 |
+| `docs/architecture.md` | 微服务拆分、模块职责、MVP 范围、实现约定（§9 为踩坑总结） |
 | `docs/tasks.md` | 分阶段任务清单（每卡 ≤2h，含验收与测试命令） |
-| `docs/progress.md` | 进度跟踪 |
+| `docs/progress.md` | 进度跟踪、变更日志、风险台账、冒烟矩阵 |
 | `docs/acceptance.md` | 各阶段验收标准 |
-| `docs/tech-spike.md` | 技术验证清单、方法、结论、风险、替代方案 |
+| `docs/tech-spike.md` | 技术验证清单、方法、结论、风险、替代方案（F-1 ~ F-13 实测发现） |
 | `docs/api/` | OpenAPI / 接口文档 |
 | `docs/adr/` | 架构决策记录 |
-| `docs/summaries/` | 长文件摘要 |
+| `docs/summaries/` | 长文件摘要、验证证据归档 |
