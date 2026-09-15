@@ -143,7 +143,7 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 |---|---|---|---|---|
 | T-301 | ✅ | Tree-Sitter 解析器封装 + 语言注册表 | Java/Python 语法包加载成功 | `mvn -q -pl codewisdom-code-analysis -am -Dtest='LanguageRegistryTest,SourceParserTest' -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-302 | ✅ | 提取类/接口/枚举/注解/记录定义 | 对样例工程，类数量与包结构断言一致 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=JavaStructureExtractorTest -Dsurefire.failIfNoSpecifiedTests=false test` |
-| T-303 | ⬜ | 提取方法签名、参数、返回值、行号 | 方法列表与预期快照一致 | `mvn -q -pl codewisdom-code-analysis -Dtest=MethodExtractTest test` |
+| T-303 | ✅ | 提取方法签名、参数、返回值、行号 | 方法列表与预期快照一致 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=JavaMethodExtractorTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-304 | ⬜ | 提取 import / 跨文件调用关系 | 生成调用边，无自环噪音 | `mvn -q -pl codewisdom-code-analysis -Dtest=CallGraphTest test` |
 | T-305 | ⏸️ 🐳 | **挂起** 解析结果入库 + Redis 缓存 + 分片并行 | 大工程分片解析耗时 < 单线程基线 | `mvn -q -pl codewisdom-code-analysis -Dtest=ParsePipelineTest test` |
 
@@ -174,6 +174,19 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 >    必须用栈维护外层限定名才能算出 `demo.Outer.Inner.Deepest`。
 > 5. **测试中不写死行号常量**——改为从样例源码反查（`lineOf`），
 >    避免手数行号随样例增删漂移，也避免"抽取器错了"与"我数错了"混淆。
+
+> **T-303 实测发现**（均在 `JavaStructureExtractor` 中处理并有测试锁定）：
+> 1. **`getChildByFieldName` 对不存在的字段返回「空节点」而非 Java `null`**——
+>    必须用 `isNull()` 判断。只看 `!= null` 会把抽象方法与接口方法误判成有方法体。
+> 2. **`throws` 子句节点没有字段名**（`getFieldNameForChild` 返回 null），
+>    只能按节点类型 `throws` 定位；其子节点还混有 `throws` 关键字与逗号，需按节点类型过滤。
+> 3. **`spread_parameter`（可变参数）的 `type`/`name` 字段都是空的**——
+>    只能从节点文本按 `...` 拆。实测文本形如 `int... nums`。
+> 4. **`formal_parameters` 的子节点包含括号与逗号标点**，
+>    直接遍历会把 `(` `,` `)` 当成参数，必须按节点类型挑 `formal_parameter` / `spread_parameter`。
+> 5. **参数注解在 `modifiers` 节点里**（与类型声明一致），不能只看参数的直接子节点。
+> 6. **构造器与同名方法靠节点类型区分**：`constructor_declaration` vs `method_declaration`，
+>    不能靠「有没有返回类型」推断。
 
 ## 阶段 4：架构逆向
 
