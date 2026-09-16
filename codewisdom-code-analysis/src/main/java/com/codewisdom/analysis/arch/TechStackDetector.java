@@ -1,5 +1,6 @@
 package com.codewisdom.analysis.arch;
 
+import com.codewisdom.analysis.domain.DependencyCoordinate;
 import com.codewisdom.analysis.domain.ImportDeclaration;
 import com.codewisdom.analysis.domain.TechStack;
 import com.codewisdom.analysis.domain.TechStackItem;
@@ -268,19 +269,6 @@ public class TechStackDetector {
 
     // ---- 依赖文件解析用的正则 ----
 
-    private static final Pattern PROPERTIES_BLOCK =
-            Pattern.compile("<properties>(.*?)</properties>", Pattern.DOTALL);
-    private static final Pattern PROPERTY_ENTRY =
-            Pattern.compile("<([\\w.-]+)>([^<]*)</([\\w.-]+)>");
-    private static final Pattern PARENT_BLOCK =
-            Pattern.compile("<parent>(.*?)</parent>", Pattern.DOTALL);
-    private static final Pattern DEPENDENCY_BLOCK =
-            Pattern.compile("<dependency>(.*?)</dependency>", Pattern.DOTALL);
-    private static final Pattern ARTIFACT_ID = Pattern.compile("<artifactId>([^<]+)</artifactId>");
-    private static final Pattern GROUP_ID = Pattern.compile("<groupId>([^<]+)</groupId>");
-    private static final Pattern VERSION = Pattern.compile("<version>([^<]+)</version>");
-    private static final Pattern MAVEN_PROPERTY = Pattern.compile("\\$\\{([^}]+)}");
-
     private static final Pattern NPM_DEPENDENCY_BLOCK = Pattern.compile(
             "\"(?:dev|peer|optional)?[dD]ependencies\"\\s*:\\s*\\{([^}]*)}");
     private static final Pattern NPM_ENTRY = Pattern.compile("\"([^\"]+)\"\\s*:\\s*\"([^\"]*)\"");
@@ -364,34 +352,24 @@ public class TechStackDetector {
     /**
      * Maven POM。
      *
-     * <p>只看 {@code <parent>} 与 {@code <dependency>} 两类块，不解析整个 XML——
-     * 目的是识别技术栈，不是做依赖解析。{@code <plugin>} 里的坐标会漏，但插件几乎不携带
-     * 技术栈信息（{@code spring-boot-maven-plugin} 例外，已单列）。
+     * <p>解析交给 {@link PomDependencyReader}，与依赖冲突检测共用同一份实现——
+     * 「同一份 pom 解析有两份必须同步的代码」是隐患，两边一旦漂移，
+     * 技术栈识别与冲突检测会给出互相矛盾的结论。
      */
     private static void detectFromPom(String path,
                                       String content,
                                       Map<TechStack, TechStackItem> found,
                                       Set<String> unrecognized) {
-        Map<String, String> properties = collectMavenProperties(content);
-
-        List<String> blocks = new ArrayList<>();
-        collectBlocks(PARENT_BLOCK, content, blocks);
-        collectBlocks(DEPENDENCY_BLOCK, content, blocks);
-
-        for (String block : blocks) {
-            String artifactId = firstGroup(ARTIFACT_ID, block);
-            if (artifactId == null) {
-                continue;
-            }
-            artifactId = artifactId.trim();
-            String groupId = firstGroup(GROUP_ID, block);
-            String version = resolveMavenVersion(firstGroup(VERSION, block), properties);
-
-            String coordinate = (groupId == null ? "" : groupId.trim() + ":") + artifactId
+        for (DependencyCoordinate dependency : PomDependencyReader.readDependencies(path, content)) {
+            // 未解析的 ${...} 不作为版本号：识别关心的是「版本是多少」，拿不到就是拿不到。
+            // （依赖冲突检测的口径不同——那边要把「引用不存在的属性」报成缺陷，所以读取器保留原文。）
+            String version = dependency.hasResolvedVersion() ? dependency.version() : null;
+            String coordinate = (dependency.groupId() == null ? "" : dependency.groupId() + ":")
+                    + dependency.artifactId()
                     + (version == null ? "" : ":" + version);
             String evidence = path + ": " + coordinate;
 
-            List<TechStack> stacks = lookupPomArtifact(artifactId);
+            List<TechStack> stacks = lookupPomArtifact(dependency.artifactId());
             if (stacks.isEmpty()) {
                 unrecognized.add(coordinate);
                 continue;
@@ -400,42 +378,6 @@ public class TechStackDetector {
                 record(found, stack, version, evidence);
             }
         }
-    }
-
-    /** {@code <properties>} 里的 name → value，用于回查 {@code ${...}} 版本引用。 */
-    private static Map<String, String> collectMavenProperties(String content) {
-        Map<String, String> properties = new LinkedHashMap<>();
-        Matcher blockMatcher = PROPERTIES_BLOCK.matcher(content);
-        while (blockMatcher.find()) {
-            Matcher entryMatcher = PROPERTY_ENTRY.matcher(blockMatcher.group(1));
-            while (entryMatcher.find()) {
-                // 开闭标签名必须一致，否则匹配到的其实是 <a><b/></a> 这类嵌套
-                if (entryMatcher.group(1).equals(entryMatcher.group(3))) {
-                    properties.put(entryMatcher.group(1), entryMatcher.group(2).trim());
-                }
-            }
-        }
-        return properties;
-    }
-
-    /**
-     * 解析版本号。
-     *
-     * <p>{@code ${property}} 引用回查 {@code <properties>}；回查不到返回 {@code null}——
-     * <b>绝不把 {@code ${...}} 原文当版本号输出</b>，那比没有版本更糟：
-     * 它会以「看起来像个版本」的样子混进架构说明书。
-     */
-    private static String resolveMavenVersion(String raw, Map<String, String> properties) {
-        if (raw == null || raw.isBlank()) {
-            return null;
-        }
-        String value = raw.trim();
-        Matcher matcher = MAVEN_PROPERTY.matcher(value);
-        if (matcher.matches()) {
-            String resolved = properties.get(matcher.group(1));
-            return resolved == null || resolved.isBlank() ? null : resolved;
-        }
-        return value;
     }
 
     private static List<TechStack> lookupPomArtifact(String artifactId) {
@@ -533,18 +475,6 @@ public class TechStackDetector {
                                String version,
                                String evidence) {
         found.merge(stack, new TechStackItem(stack, version, List.of(evidence)), TechStackItem::merge);
-    }
-
-    private static void collectBlocks(Pattern pattern, String content, List<String> out) {
-        Matcher matcher = pattern.matcher(content);
-        while (matcher.find()) {
-            out.add(matcher.group(1));
-        }
-    }
-
-    private static String firstGroup(Pattern pattern, String text) {
-        Matcher matcher = pattern.matcher(text);
-        return matcher.find() ? matcher.group(1) : null;
     }
 
     private static String fileNameOf(String path) {

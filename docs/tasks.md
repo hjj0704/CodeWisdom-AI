@@ -329,7 +329,7 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 | 卡号 | 任务 | 验收 | 测试命令 |
 |---|---|---|---|
 | T-501 | ✅ | 审计规则引擎 + 规则注册机制 | 空指针/未捕获异常/硬编码/死代码规则可插拔 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=RuleEngineTest -Dsurefire.failIfNoSpecifiedTests=false test` |
-| T-502 | ⬜ | `pom.xml` 依赖冲突检测（版本冲突/重复/无效） | 构造样例能检出冲突并给出路径 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=PomConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-502 | ✅ | `pom.xml` 依赖冲突检测（版本冲突/重复/无效） | 构造样例能检出冲突并给出路径 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=PomConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-503 | ⬜ | `requirements.txt` 依赖解析与冲突检测 | 同上（Python 侧） | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ReqConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-504 | ⬜ | 架构隐患规则（循环依赖/分层混乱/职责不单一） | 与 T-404 结果打通，输出统一问题模型 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ArchRiskTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-505 | ⬜ | 风险分级（高/中/低）+ 问题模型入库 | 每条问题含文件、行号、描述、风险说明、触发场景 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=AuditPipelineTest -Dsurefire.failIfNoSpecifiedTests=false test` |
@@ -368,8 +368,42 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 > 另有可插拔验证（自定义规则无需改引擎即生效、引擎不认识任何具体规则）、
 > 不误报验证（被调用的私有方法、`@PostConstruct` 回调、常量字段都不算死代码）、
 > 无调用图时死代码规则安静退出。
-> **阶段 5 门禁实测**：`-Dtest='*Audit*,*Conflict*,*Rule*'` → 12 个测试全绿
-> （目前只有 `RuleEngineTest` 匹配，T-502~T-505 落地后会自动纳入）。
+> **阶段 5 门禁实测**：`-Dtest='*Audit*,*Conflict*,*Rule*'` → 21 个测试全绿
+> （`RuleEngineTest` 12 + `PomConflictTest` 9），T-503~T-505 落地后会继续自动纳入。
+
+> **T-502 实现约定**（落在 `DependencyCoordinate` / `PomDependencyReader` / `PomConflictAnalyzer`）：
+> 1. **检测的是「声明级」冲突，不是运行时冲突**——这条口径必须说死，否则报告会被当成依赖仲裁结果：
+>    <b>不解析传递依赖</b>（A 依赖 B、B 依赖 C-1.0 而工程直接声明 C-2.0，这种最常见的 Maven 冲突
+>    **检不出来**，需要真正的依赖解析器）；<b>不看 `dependencyManagement`</b>（它决定实际生效版本）；
+>    <b>不看 `exclusions` 与 `profiles`</b>。结论一律表述为「<b>声明</b>层面存在冲突」。
+> 2. **同一 pom 内多版本 = 高危**：Maven 按「最近优先」裁决后另一个版本<b>静默失效</b>，
+>    源码里写着 2.0、实际加载 1.0，排查时极具误导性。
+> 3. **跨模块版本不一致 = 中危，且措辞不许说成「冲突」**：两个独立模块各用各的版本<b>是合法的</b>，
+>    只有共享同一运行时 classpath 时才真正冲突——而本工具<b>判不出是否共享</b>，所以报为
+>    「声明不一致」，风险说明里明写「请先确认，再由父 pom 的 dependencyManagement 统一」。
+> 4. **行号锚在 `<dependency>` 块首行**，不是 `<version>` 行：用户拿行号要跳到的是「这条声明」。
+>    因此读取器用「块的起始字符下标 + 数换行符」算行号——拿 `<artifactId>` 的下标当行号，
+>    在多行写法下会差好几行。
+> 5. **版本回查不到时保留 `${...}` 原文**（与 T-403 的口径相反）：冲突检测要报「引用了不存在的属性」
+>    这个缺陷，置空就看不见了；技术栈识别只要版本号，所以在那边映射成 null。
+>    同一个读取器服务两种口径，由调用方决定怎么用。
+> 6. **pom 解析抽成公共读取器**（`PomDependencyReader`），技术栈识别与冲突检测共用一份——
+>    「两份必须同步的解析代码」一旦漂移，两边会给出互相矛盾的结论。它是<b>无状态静态工具</b>，
+>    不做成 Spring Bean，这样 T-403 的构造签名与测试都不用动。
+> 7. **重复声明在已有版本冲突时不再单独报**：同坐标多版本的高危条目已经说了「声明了多个版本」，
+>    再补一条低危的「重复声明」只是同一处代码刷两条，稀释重点。只有<b>同版本</b>的纯冗余才落到那条规则。
+
+> **T-502 实测发现**：
+> - **`<project>` 自身的 groupId/artifactId 不会被误收**：读取器只在 `<parent>` 与 `<dependency>`
+>   块内取坐标，因此 `pom.xml` 顶层的坐标与 `<modules>` 都不会进依赖清单（有用例锁定）。
+
+> **T-502 验收证据**：9 个用例。5 模块样例工程（parent + 3 个有问题的模块 + 1 个干净模块）：
+> ①同一 pom 多版本判**高危**且锚在第二处声明；②跨模块版本不一致判**中危**且描述里不含「冲突」二字
+> （有用例断言措辞）；③同 pom 重复声明判低危；④缺 groupId 与版本属性不存在各报一条；
+> ⑤**冲突路径**：触发场景里含每一处声明的 `文件:行号` 与两个版本号；
+> ⑥**负向断言**：干净模块与 parent pom 零产出、跨模块同版本不算冲突、能解析的属性引用不报无效；
+> ⑦输出与入参顺序无关（倒序传入结果一致）。
+
 
 ## 阶段 6：文档注释生成
 
