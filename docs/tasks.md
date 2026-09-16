@@ -215,14 +215,14 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 > 按需导入歧义（两个包下同名 `Dup`）判为未解析、不产边；
 > 继承来的方法挂到真正声明的父类型；静态导入指向宿主类型而非调用方自己。
 
-## 阶段 4：架构逆向
+## 阶段 4：架构逆向 —— ✅ 已完成（4 / 4）
 
 | 卡号 | 任务 | 验收 | 测试命令 |
 |---|---|---|---|
 | T-401 | ✅ | 包结构/分层识别（controller/service/mapper/...） | 分层归类正确率在样例集上达标 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=LayerDetectTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-402 | ✅ | Mermaid 架构图生成（模块图/依赖拓扑图） | 输出可被 Mermaid 解析，前端可渲染 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=MermaidGenTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-403 | ✅ | 技术栈识别（Spring/MyBatis/Vue/...） | 对样例工程识别结果与标注一致 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=TechStackTest -Dsurefire.failIfNoSpecifiedTests=false test` |
-| T-404 | ⬜ | 模块循环依赖检测 | 对构造的循环依赖样例能检出并给出环路径 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=CycleDetectTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-404 | ✅ | 模块循环依赖检测 | 对构造的循环依赖样例能检出并给出环路径 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=CycleDetectTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 
 > **T-401 实现约定**（落在 `LayerKind` / `LayerAssignment` / `LayerReport` / `LayerDetector`）：
 > 1. **四个信号分开保留，不合并成一个结论**——路径 / 注解 / 包名 / 类型名各存一份。
@@ -298,6 +298,31 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 > 断言是**双向**的（`containsExactlyInAnyOrderElementsOf`）：多认一项和少认一项都要红。
 > ⚠️ **口径**：样例是本卡自建的，只说明规则与标注一致，**不等于真实工程识别准确**；
 > 且识别的是「工程里**声明或引用**了这项技术」，**不是**「这项技术在运行」。
+
+> **T-404 实现约定**（落在 `DependencyCycle` / `CycleReport` / `CycleDetector`）：
+> 1. **用 Tarjan 求强连通分量，不逐个节点找环**。「从每个节点出发 DFS 看能否回到自己」
+>    在稠密图上会退化成指数级，而且会把同一个环按不同起点重复报好几遍。
+>    Tarjan 一次遍历求出全部 SCC：大小为 1 的跳过，≥2 的整块缠在一起。
+> 2. **但只有「块」不够**——验收要的是**完整环路径**。每个分量内再从字典序最小的节点做一次
+>    **BFS**，取回到起点的**最短**环作为代表路径。用 BFS 不用 DFS：DFS 找到的那条可能绕一大圈，
+>    把「拆一条边就能断」的环描述成「要拆五条」。
+> 3. **两个粒度都要报**：同一份依赖可能**同时**是包环与分层环（`demo.web ↔ demo.svc` 既是包环，
+>    也是 controller ↔ service 的反向依赖）。包环告诉你哪两个包要拆，层环告诉你架构分层倒了，
+>    只报一个会漏掉另一半信息。
+> 4. **模块内调用不是环**：同包内 A 调 B、B 调 A 在包级图上就是一条自环，毫无信息量，建图时丢掉。
+>    反过来，同层不同包（`..service` 与 `..service.impl`）互调在**层图上**是自环、
+>    在**包图上**是真环——这条对照有专门用例锁定。
+> 5. **环路径首尾同一个模块**（`[a, b, c, a]`）。不重复收尾的话，「这是环」只能靠读者自己
+>    把首尾接起来，而架构文档的读者往往正是没意识到这是环的人。构造时校验，非法路径直接抛异常。
+
+> **T-404 验收证据**：11 个用例。
+> ① 三包环检出且路径逐字符断言（`demo.a -> demo.b -> demo.c -> demo.a`）；② 两包环、多环按长度排序；
+> ③ **负向断言**：链式依赖 `a → b → c` 必须不报环；④ 同包互调不报环，**并断言该样例确实有 2 条调用边**
+> ——否则「没检出」可能只是因为样例压根没有依赖；⑤ 层环与包环同时报出；⑥ 空工程、非法路径构造。
+>
+> **阶段 4 门禁实测**：`mvn -pl codewisdom-code-analysis -am -Dtest='*Layer*,*Mermaid*,*Tech*,*Cycle*' test`
+> → **52 个测试全绿**（`LayerDetectTest` 16 + `MermaidGenTest` 11 + `TechStackTest` 14 + `CycleDetectTest` 11），
+> 说明上一轮修正过的门禁命令确实能跑通，不再空集。
 
 ## 阶段 5：缺陷与依赖审计
 
