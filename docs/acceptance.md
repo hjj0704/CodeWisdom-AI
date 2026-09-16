@@ -73,7 +73,9 @@
 - 分层识别（controller/service/mapper/config/...）在样例集上准确率 ≥ 标注基线。
 - 技术栈识别输出与标注一致。
 - 构造的循环依赖样例能被检出，并给出完整环路径。
-- 命令：`mvn -q -pl codewisdom-code-analysis -Dtest='*Arch*,*Mermaid*,*Cycle*' test`
+- 命令：`mvn -q -pl codewisdom-code-analysis -Dtest='*Layer*,*Mermaid*,*Tech*,*Cycle*' -Dsurefire.failIfNoSpecifiedTests=false test`
+  （原写的是 `*Arch*`，与阶段 4 四张卡的实际测试类名都对不上，门禁会跑成空集；已按
+  `LayerDetectTest` / `MermaidGenTest` / `TechStackTest` / `CycleDetectTest` 更正。）
 
 ## 阶段 5：缺陷与依赖审计
 

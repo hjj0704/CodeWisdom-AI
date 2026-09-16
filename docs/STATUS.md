@@ -12,20 +12,20 @@
 
 ## 一、一句话状态
 
-**阶段 0 / 1A / 2 / 3 已完成（阶段 3 的 T-305 因 Redis 挂起）。**
-`mvn clean verify` → **7 模块全绿，308 个测试，0 失败 0 跳过**。
+**阶段 0 / 1A / 2 / 3 已完成（阶段 3 的 T-305 因 Redis 挂起）；阶段 4 完成 1/4。**
+`mvn clean verify` → **7 模块全绿，324 个测试，0 失败 0 跳过**。
 
 | 快速数字 | 值 |
 |---|---|
-| 完成任务卡 | **18 / 62**（另有 16 张因缺 Docker 挂起） |
-| 测试 | **308 个，0 失败 0 跳过**（common 12 / gateway 1 / project-resource 210 / code-analysis 80 / agent-orchestration 4 / evaluation-export 1） |
-| 主代码 | 57 个 Java 文件 / 5062 行 |
-| 测试代码 | 29 个 Java 文件 / 5101 行（测试比主代码还多） |
-| 提交 | 11 个，全部已推送 |
+| 完成任务卡 | **19 / 62**（另有 16 张因缺 Docker 挂起） |
+| 测试 | **324 个，0 失败 0 跳过**（common 12 / gateway 1 / project-resource 210 / code-analysis 96 / agent-orchestration 4 / evaluation-export 1） |
+| 主代码 | 61 个 Java 文件 / 5689 行 |
+| 测试代码 | 30 个 Java 文件 / 5528 行（测试比主代码还多） |
+| 提交 | 12 个，全部已推送 |
 | 文档 | 8 份（`CLAUDE.md` + `docs/*.md`） |
 
 > ⚠️ **基线数字更正**：此前文档记的基线是 283，长期实测为 **284**（少算 1 个）。
-> 以 284 为 T-304 之前的基线，本卡新增 24 个（`CallGraphTest`），合计 **308**。
+> T-304 新增 24 个 → 308；T-401 新增 16 个 → **324**。
 
 ---
 
@@ -37,8 +37,8 @@
 | 1A | 工程骨架（零中间件） | ✅ 完成 | 3 / 3 |
 | 1B | 中间件接入 | ⏸️ 挂起 | 0 / 3 |
 | 2 | 项目多源导入 | ✅ 完成 | 4 / 6（2 张挂起） |
-| 3 | 代码解析服务 | ✅ **完成**（T-305 挂起） | 4 / 5 |
-| 4 | 架构逆向 | ⬜ 未开始 | 0 / 4 |
+| 3 | 代码解析服务 | ✅ 完成（T-305 挂起） | 4 / 5 |
+| 4 | 架构逆向 | 🟡 **进行中** | 1 / 4 |
 | 5 | 缺陷与依赖审计 | ⬜ 未开始 | 0 / 5 |
 | 6 | 文档注释生成 | ⬜ 未开始 | 0 / 4 |
 | 7 | 修复建议 / Diff / HITL | ⬜ 未开始 | 0 / 4 |
@@ -53,7 +53,7 @@
 
 ## 三、任务卡逐条清单
 
-### ✅ 已完成（18 张）
+### ✅ 已完成（19 张）
 
 | 卡号 | 任务 | 关键证据 |
 |---|---|---|
@@ -75,6 +75,7 @@
 | T-302 | 类型声明抽取 | 五种类型、多层嵌套限定名、修饰符、注解、继承 |
 | T-303 | 方法签名抽取 | 构造器 / 泛型 / 可变参数 / 抽象方法 / throws / 参数注解 |
 | T-304 | **import 与跨文件调用图** | 7 文件样例工程断言 12 条内部边 + 2 条外部边；递归 / `this(...)` / 同类互调三类自环噪音分两级滤掉；歧义按需导入判未解析；继承方法挂到真正声明的父类型 |
+| T-401 | **包结构与分层识别** | 自建样例集 32 个类型 **100%（32/32）**；四信号分离（路径/注解/包名/类型名），冲突可查；`model` 等歧义段不猜，认不出显式列 UNKNOWN |
 
 ### ⏸️ 挂起 —— 全部因为**本机没有 Docker**（16 张）
 
@@ -102,8 +103,8 @@
 
 | 卡号 | 任务 | 所属阶段 |
 |---|---|---|
-| **T-401** | **包结构/分层识别（controller/service/mapper/...）** ← **下一张** | 阶段 4 |
-| T-402~T-404 | Mermaid 架构图 / 技术栈识别 / 循环依赖 | 阶段 4 |
+| **T-402** | **Mermaid 架构图生成（模块图/依赖拓扑图）** ← **下一张** | 阶段 4 |
+| T-403~T-404 | 技术栈识别 / 循环依赖检测 | 阶段 4 |
 | T-501~T-505 | 审计规则引擎 / 依赖冲突 / 架构隐患 / 风险分级 | 阶段 5 |
 | T-601~T-604 | LLM 抽象层 / 注释生成 / README / 文档产物 | 阶段 6 |
 | T-701~T-704 | 修复建议 / Diff / HITL 状态机 / 全图串联 | 阶段 7 |
@@ -115,20 +116,21 @@
 ## 四、明天怎么开始
 
 ```bash
-# 1. 跑基线，确认起点正确（预期：7 模块 SUCCESS，308 测试，0 失败 0 跳过）
+# 1. 跑基线，确认起点正确（预期：7 模块 SUCCESS，324 测试，0 失败 0 跳过）
 cd D:/CodeWisdom
 mvn clean verify
 
 # 2. 下一张卡
-#    T-401 —— 包结构/分层识别（controller/service/mapper/...）
+#    T-402 —— Mermaid 架构图生成（模块图/依赖拓扑图）
 #    涉及模块：codewisdom-code-analysis
-#    顺手可用的输入：T-304 产出的 CallGraph.typeEdges()（类型级调用边，已去自环）
-#                   与 SourceStructure.types()（含 packageName）、FileTreeStats（按分类统计）
-#    验收：分层归类正确率在样例集上达标
-#    测试：mvn -q -pl codewisdom-code-analysis -am -Dtest=LayerDetectTest -Dsurefire.failIfNoSpecifiedTests=false test
+#    现成输入：LayerReport.layersByPackage() / mixedPackages()（T-401 的分层与包结构）
+#             CallGraph.typeEdges()（T-304 的类型级调用边，已去自环）
+#    验收：输出可被 Mermaid 解析，前端可渲染（注意 acceptance.md 要求「能被官方解析器成功渲染」，
+#          不是只生成字符串 —— 需要设法在离线环境下真正校验语法）
+#    测试：mvn -q -pl codewisdom-code-analysis -am -Dtest=MermaidGenTest -Dsurefire.failIfNoSpecifiedTests=false test
 ```
 
-然后对我说：**「先读 CLAUDE.md、docs/progress.md、docs/tasks.md。当前任务：T-401」** 即可。
+然后对我说：**「先读 CLAUDE.md、docs/progress.md、docs/tasks.md。当前任务：T-402」** 即可。
 
 ---
 
@@ -165,12 +167,16 @@ mvn clean verify
 | 9 | **构造器体是 `constructor_body` 不是 `block`** | 按 `block` 找方法体会**静默漏掉全部构造器内的调用**——不报错不抛异常，只是少一批调用边 |
 | 10 | **通配符 import 的 `scoped_identifier` 文本不含 `.*`** | 在文本里找 `*` 永远找不到，通配符被当成普通导入，解析结果错得无声无息 |
 | 11 | **静态导入的最后一段是成员名不是类型名** | 建「简单名 → 类型」映射会把 `requireNonNull` 当成类；无接收者调用则被挂到调用方自己头上，产出**指向自身的假边** |
+| 12 | **路径标记写成 `/src/test/`（带前导斜杠）** | 工程内路径是相对路径 `src/test/java/...`，永远匹配不上；**而且匹配不上时不报错**，只是静默把测试类混进分层统计，架构图跟着失真 |
 
 > 另有若干 Tree-Sitter grammar 的实测细节（`throws` 子句无字段名、`spread_parameter` 字段为空、
 > 参数注解在 `modifiers` 里、带注解的类型起始行指向注解行、`import_declaration` 与
 > `method_reference` 无字段名、`method_invocation.object` 缺失时的空节点判定、`type_arguments`
-> 在 `name` 之前……）已记录在 `docs/tasks.md` 阶段 3 小节与 `docs/tech-spike.md`（F-14 ~ F-16），
-> 写阶段 4 之前建议扫一眼。
+> 在 `name` 之前……）已记录在 `docs/tasks.md` 阶段 3 小节与 `docs/tech-spike.md`（F-14 ~ F-16）。
+>
+> **共同点**：第 9~12 条全都是「不报错、只是结果少一点或错一点」的类型。写新解析逻辑时，
+> 光有正向断言不够，**必须补负向断言**（「这个不该出现」）——第 12 条就是靠
+> 「测试类应判 TEST」的负向断言才抓到的，前面所有正向断言都是绿的。
 
 ---
 

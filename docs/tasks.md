@@ -219,10 +219,34 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 
 | 卡号 | 任务 | 验收 | 测试命令 |
 |---|---|---|---|
-| T-401 | 包结构/分层识别（controller/service/mapper/...） | 分层归类正确率在样例集上达标 | `mvn -q -pl code-analysis -Dtest=LayerDetectTest test` |
-| T-402 | Mermaid 架构图生成（模块图/依赖拓扑图） | 输出可被 Mermaid 解析，前端可渲染 | `mvn -q -pl code-analysis -Dtest=MermaidGenTest test` |
-| T-403 | 技术栈识别（Spring/MyBatis/Vue/...） | 对样例工程识别结果与标注一致 | `mvn -q -pl code-analysis -Dtest=TechStackTest test` |
-| T-404 | 模块循环依赖检测 | 对构造的循环依赖样例能检出并给出环路径 | `mvn -q -pl code-analysis -Dtest=CycleDetectTest test` |
+| T-401 | ✅ | 包结构/分层识别（controller/service/mapper/...） | 分层归类正确率在样例集上达标 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=LayerDetectTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-402 | ⬜ | Mermaid 架构图生成（模块图/依赖拓扑图） | 输出可被 Mermaid 解析，前端可渲染 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=MermaidGenTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-403 | ⬜ | 技术栈识别（Spring/MyBatis/Vue/...） | 对样例工程识别结果与标注一致 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=TechStackTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-404 | ⬜ | 模块循环依赖检测 | 对构造的循环依赖样例能检出并给出环路径 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=CycleDetectTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+
+> **T-401 实现约定**（落在 `LayerKind` / `LayerAssignment` / `LayerReport` / `LayerDetector`）：
+> 1. **四个信号分开保留，不合并成一个结论**——路径 / 注解 / 包名 / 类型名各存一份。
+>    「类放在哪」与「类是什么」不一致本身就是结论，合并掉这个信息就永久丢了。
+> 2. **优先级：路径 → 注解 → 包名 → 类型名**，理由写在 `LayerAssignment#layer()`：
+>    路径是编译期事实（先隔离测试代码），注解是框架契约，包是物理边界，名字只是标签。
+> 3. **包名从最内层往外找**：`..service.impl` 里 `impl` 不表态，继续往外命中 `service`；
+>    `..domain.vo` 直接命中 `vo`（DTO）而非 `domain`（实体）。
+> 4. **`TEST` 不是角色信号**，不论来自路径还是 `*Test` 后缀，都不参与冲突判定——
+>    否则「`service` 包下的 `OrderServiceTest`」会被误报成分层混乱。
+> 5. **`model` / `pojo` / `bean` / `core` / `common` 刻意不建映射**：这些包里实体与 DTO 混放是常态，
+>    凭段名判断等于猜。认不出来就给 `UNKNOWN`，由 `unclassified()` 显式暴露。
+
+> **T-401 实测踩坑**：
+> - **路径标记写成 `/src/test/`（带前导斜杠）永远匹配不上**——工程内路径是相对路径
+>   `src/test/java/...`。而且匹配不上时**不报错**，只是静默把测试类混进分层统计。
+>   改用 `src/test/` 后顺带兼容 `module-a/src/test/java/...` 多模块路径。
+>   这条靠「测试类应判 TEST」的断言才抓到，说明**负向断言比正向断言更容易漏**。
+
+> **T-401 验收证据**：自建样例集 **32 个类型**（仿 RuoYi + Spring Boot 真实包结构手工标注）
+> **准确率 100%（32/32）**，测试里打印实测值。⚠️ **口径说明：样例集是本卡自己造的，
+> 只能说明规则内部自洽，不能外推成「真实工程识别准确」**；真实工程准确率需独立标注的工程另测。
+> 另有 15 个用例覆盖优先级、冲突判定、混合包检测、嵌套类型取所在文件的包、输出顺序稳定性，
+> 以及与 T-302 解析链路打通的端到端用例。
 
 ## 阶段 5：缺陷与依赖审计
 
