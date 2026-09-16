@@ -3,10 +3,15 @@
 #
 # 与仓库根目录的 docker-compose.yml（本地开发用）的**三点关键差异**：
 #
-#  ① **端口只绑回环 `127.0.0.1`**，不是 `0.0.0.0`。
-#     服务的 jar 跑在宿主机上，需要经 localhost 连中间件，所以端口必须发布；
-#     但发布到 0.0.0.0 就意味着**公网可达**。绑 127.0.0.1 之后，
-#     即使安全组配错了，外部也连不进来——这是安全组之外的第二道防线。
+#  ① **端口绑定在 `0.0.0.0`（公网可达）**。
+#     ⚠️ 2026-09-16 按用户要求改为公网直连，用于「线上直接开发、不再本地测试」。
+#     之前的版本绑的是 127.0.0.1（只有走 SSH 隧道才能访问），
+#     要回到那种做法：把下面的端口改回 "127.0.0.1:xxxx:xxxx" 即可，git 历史里有。
+#
+#     公网暴露带来的**必须**配套动作：
+#       · Redis **必须设密码**（无密码 Redis 开公网 = 保证被入侵）
+#       · 各控制台账号改强密码（Nacos 首次登录会强制改；RabbitMQ/MinIO 用 .env 里的）
+#       · 安全组只放行需要的端口，来源能限则限
 #
 #  ② **每个容器都加了 `mem_limit`**，数值按本机实测占用留了余量：
 #     nacos 实测 1.14G / mysql 410M / rabbitmq 184M / minio 95M / redis 10M。
@@ -44,7 +49,7 @@ services:
       - --innodb-buffer-pool-size=128M
       - --performance-schema=OFF
     ports:
-      - "127.0.0.1:3306:3306"
+      - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     mem_limit: 512m
@@ -62,8 +67,15 @@ services:
     container_name: cw-redis
     restart: unless-stopped
     # 缓存与幂等锁，丢了可以从源头重建，不为此吃内存
+    environment:
+      # ⚠️ **公网暴露时必须设密码**。无密码的 Redis 开在公网上是「保证会被入侵」的：
+      #    有专门的扫描程序扫全网 6379，装挖矿程序、往 authorized_keys 写公钥，
+      #    通常几小时到几天内就中招。密码由 .env 提供。
+      REDIS_PASSWORD: ${CW_REDIS_PASSWORD:?公网暴露必须设置 Redis 密码}
     command:
       - redis-server
+      - --requirepass
+      - ${CW_REDIS_PASSWORD:?公网暴露必须设置 Redis 密码}
       - --appendonly
       - "no"
       - --maxmemory
@@ -71,12 +83,13 @@ services:
       - --maxmemory-policy
       - allkeys-lru
     ports:
-      - "127.0.0.1:6379:6379"
+      - "6379:6379"
     volumes:
       - redis-data:/data
     mem_limit: 128m
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      # 用 REDISCLI_AUTH 传密码，不用 -a —— 后者会把密码暴露在进程命令行里（ps 可见）
+      test: ["CMD-SHELL", "REDISCLI_AUTH=\"$$REDIS_PASSWORD\" redis-cli ping | grep -q PONG"]
       interval: 15s
       timeout: 3s
       retries: 5
@@ -103,11 +116,11 @@ services:
       TZ: Asia/Shanghai
     ports:
       # 8848 服务发现/配置，9848 gRPC（客户端 2.x 起必需，漏了连不上）
-      - "127.0.0.1:8848:8848"
-      - "127.0.0.1:9848:9848"
+      - "8848:8848"
+      - "9848:9848"
       # 控制台在容器内 8080，且 context path 是 `/`（不是 2.x 的 /nacos/）。
-      # 只绑回环：看控制台走 SSH 隧道，不开公网
-      - "127.0.0.1:8849:8080"
+      # 公网可达；控制台**首次登录会强制要求改密码**，别用默认的 nacos/nacos。
+      - "8849:8080"
     volumes:
       - nacos-logs:/home/nacos/logs
     # ⚠️ 第一版给 768m，实测**跑到 752.8MiB / 768MiB = 98%**，随时会被 OOM-Kill。
@@ -134,8 +147,8 @@ services:
       MINIO_ROOT_PASSWORD: ${CW_MINIO_PASSWORD:?必须在 .env 中设置}
       TZ: Asia/Shanghai
     ports:
-      - "127.0.0.1:9000:9000"
-      - "127.0.0.1:9001:9001"
+      - "9000:9000"
+      - "9001:9001"
     volumes:
       - minio-data:/data
     mem_limit: 256m
@@ -159,8 +172,8 @@ services:
       #    容器会直接 `exit 1` 崩溃重启，日志只说 "deprecated environment variables detected"，
       #    不看日志会误以为是内存不够被 OOM。**改用挂配置文件**（见 volumes 与 rabbitmq.conf）。
     ports:
-      - "127.0.0.1:5672:5672"
-      - "127.0.0.1:15672:15672"
+      - "5672:5672"
+      - "15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
       # 正经的配置方式：配置文件而不是环境变量
