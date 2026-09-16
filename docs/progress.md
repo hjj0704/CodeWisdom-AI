@@ -33,7 +33,7 @@ T-403 可直接复用 `JavaDependencyExtractor.extractImports()`（判 Spring/My
 
 | 阶段 | 名称 | 状态 | 完成卡 / 总卡 |
 |---|---|---|---|
-| 阶段 0 | 技术验证与文档初始化 | ✅ **已完成** | 6 / 9（T-003、T-008 挂起） |
+| 阶段 0 | 技术验证与文档初始化 | ✅ **已完成** | 7 / 9（T-003、T-008 挂起） |
 | 阶段 1A | 工程骨架（零中间件） | ✅ **已完成** | 3 / 3 |
 | 阶段 1B | 中间件接入 | ⏸️ 挂起（等 Docker） | 0 / 3 |
 | 阶段 2 | 项目多源导入 | ✅ **已完成**（T-205、T-206 挂起） | 4 / 6 |
@@ -134,6 +134,7 @@ T-403 可直接复用 `JavaDependencyExtractor.extractImports()`（判 Spring/My
 | 2026-09-16 | T-402 | **官方解析器真校验接入构建**：`tools/mermaid-verify/`（mermaid 11.6.0 + jsdom），stdin 进图、退出码出结果，仅测试工具不参与 Java 构建 | `tools/mermaid-verify/package.json`、`verify.mjs` |
 | 2026-09-16 | T-402 | 实测标签转义只有两条：`"` 破坏引号标签边界、`\` 是转义符会吞字符（`a/b\c` → `a/bc`，**静默内容丢失**）；其余字符含中文原样可用 | `MermaidGenerator`、`docs/tech-spike.md` F-17 |
 | 2026-09-16 | T-402 | 定界：**官方解析器能离线验、真实渲染不能**（`mermaid.render` 需 `getBBox`，jsdom 无布局引擎）。表述统一收敛为「能被解析」，禁止说「能渲染」 | `docs/tech-spike.md` F-17、`docs/tasks.md` |
+| 2026-09-16 | 文档更正 | **核对看板数字**：挂起卡实为 **14 张**（原写 16；表里逐条只有 10 行 + `T-1101~1104` 四张）；阶段 0 实为 **7/9**（T-002 按 `tasks.md` 属阶段 0，原被算进 1A）；STATUS 头部「最新提交」停在 T-304 未随卡更新 | `docs/STATUS.md`、`docs/progress.md` |
 
 ## 5. 已知风险台账
 
