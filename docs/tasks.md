@@ -51,7 +51,7 @@ T-003 / T-008  ⏸️ 挂起，等 Docker 就绪
 |---|---|---|---|
 | T-103 | 🐳 `gateway`：Nacos 注册 + 路由 + CORS + Sentinel 限流 | 经网关能打到下游服务 `/actuator/health` | `curl -i http://localhost:8080/code-analysis/actuator/health` |
 | T-104 | 🐳 `gateway`：springdoc 聚合下游 OpenAPI | `/v3/api-docs` 返回合并后的 JSON（含各服务 tag） | `curl -s http://localhost:8080/v3/api-docs \| head -c 200` |
-| T-105 | 🐳 各服务接入 MySQL + MyBatis-Plus + Flyway 基线脚本 | 启动自动建表，`SELECT 1` 通 | `mvn -q -pl evaluation-export test` |
+| T-105 | 🐳 各服务接入 MySQL + MyBatis-Plus + Flyway 基线脚本。**并接手 T-505 移入的「审计问题入库」**：为 code-analysis 建 `t_audit_issue` 表 + entity + mapper（T-505 已完成模型与报告，只差落库） | 启动自动建表，`SELECT 1` 通 | `mvn -q -pl evaluation-export test` |
 
 ## 阶段 2：项目多源导入
 
@@ -324,7 +324,7 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 > → **52 个测试全绿**（`LayerDetectTest` 16 + `MermaidGenTest` 11 + `TechStackTest` 14 + `CycleDetectTest` 11），
 > 说明上一轮修正过的门禁命令确实能跑通，不再空集。
 
-## 阶段 5：缺陷与依赖审计
+## 阶段 5：缺陷与依赖审计 —— ✅ 已完成（5 / 5）
 
 | 卡号 | 任务 | 验收 | 测试命令 |
 |---|---|---|---|
@@ -332,7 +332,7 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 | T-502 | ✅ | `pom.xml` 依赖冲突检测（版本冲突/重复/无效） | 构造样例能检出冲突并给出路径 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=PomConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-503 | ✅ | `requirements.txt` 依赖解析与冲突检测 | 同上（Python 侧） | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ReqConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-504 | ✅ | 架构隐患规则（循环依赖/分层混乱/职责不单一） | 与 T-404 结果打通，输出统一问题模型 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ArchRiskTest -Dsurefire.failIfNoSpecifiedTests=false test` |
-| T-505 | 🟡 | 风险分级（高/中/低）+ 问题模型入库 | 每条问题含文件、行号、描述、风险说明、触发场景 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=AuditPipelineTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-505 | ✅ | 风险分级（高/中/低）+ 问题模型入库（**入库移入 T-105**，2026-09-16 决策） | 每条问题含文件、行号、描述、风险说明、触发场景 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=AuditPipelineTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 
 > **T-501 实现约定**（落在 `AuditIssue` / `AuditRule` / `AuditEngine` / `arch/rules/*`）：
 > 1. **统一问题模型只有一个**：代码缺陷、依赖冲突、架构隐患全部收敛成 `AuditIssue`
@@ -372,7 +372,7 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 > （`RuleEngineTest` 12 + `PomConflictTest` 9 + `ReqConflictTest` 12 + `ArchRiskTest` 14 +
 > `AuditPipelineTest` 10）——T-505 的测试已自动纳入，门禁五个类全覆盖。
 
-> **T-505 进度：风险分级与汇总已完成，入库未做（等一个范围决定）**
+> **T-505 已完成（入库按决策移入 T-105）**
 >
 > **已完成**（`AuditReport` / `AuditPipeline` / `AuditPipelineTest`，10 个用例）：
 > 1. **汇总**：四路产出（`AuditEngine` / `PomConflictAnalyzer` / `RequirementsConflictAnalyzer` /
@@ -389,11 +389,14 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 > 5. **空报告不给自己安等级**：`highestRiskLevel()` 返回 `Optional.empty()`——
 >    「没有发现问题」与「问题都是低危」是两回事。
 >
-> **未做：问题模型入库**。原因不是做不了，是**范围需要确认**：
-> `codewisdom-code-analysis` 目前**完全没有持久化层**（无 MyBatis-Plus / H2 / Flyway 依赖、
-> 无数据源配置、无 entity/mapper 包），而「各服务接入 MySQL + MyBatis-Plus + Flyway 基线脚本」
-> 正是**挂起中的 T-105** 的职责。在 T-505 里半接一个数据源会让 T-105 落地时更难对齐。
-> 两个可选路径见 `docs/STATUS.md` 的「T-505 待决」。
+> **「问题模型入库」按 2026-09-16 决策移入 T-105**（决策过程记录在 `docs/STATUS.md` 的
+> 「T-505 待决」小节）。理由：`codewisdom-code-analysis` 完全没有持久化层（无 MyBatis-Plus /
+> H2 / Flyway 依赖、无数据源配置、无 entity/mapper 包），而「各服务接入 MySQL + MyBatis-Plus +
+> Flyway 基线脚本」正是挂起中 T-105 的职责。在 T-505 里半接一个数据源，等 T-105 用统一方式
+> 接入时要么对齐要么返工——**收益是省几小时，代价是留一套要清理的半成品写法**。
+>
+> 因此 T-505 交付**内存中的报告**；T-105 只需在既有模型上补 `t_audit_issue` 表 + entity + mapper。
+> **在 T-105 完成前，不能说「审计结果已入库」。**
 
 > **T-505 已完成的验收证据**：10 个用例。
 > ①分级计数、最高等级、含高危判定；②**三档恒定出现**（「高危 0」可区分于「没统计」）；
