@@ -12,12 +12,14 @@ public class DocMetaObjectHandler implements MetaObjectHandler {
 
     @Override
     public void insertFill(MetaObject metaObject) {
-        strictInsertFill(metaObject, "createdAt", LocalDateTime.class,
-                LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS));
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
+        strictInsertFill(metaObject, "createdAt", LocalDateTime.class, now);
+        strictInsertFill(metaObject, "updatedAt", LocalDateTime.class, now);
     }
 
     @Override
     public void updateFill(MetaObject metaObject) {
-        // 文档产物记录不可变
+        strictUpdateFill(metaObject, "updatedAt", LocalDateTime.class,
+                LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS));
     }
 }

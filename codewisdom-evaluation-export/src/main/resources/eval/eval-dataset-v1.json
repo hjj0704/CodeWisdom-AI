@@ -1,0 +1,173 @@
+{
+  "version": "1.0",
+  "samples": [
+    {
+      "id": "normal-001",
+      "category": "NORMAL",
+      "title": "标准 Spring Boot 三层工程",
+      "description": "controller-service-mapper 分层清晰，依赖无冲突，含 README",
+      "expected": {
+        "requiredRuleIds": [],
+        "forbiddenRuleIds": ["CW-DEP-CONFLICT-001"],
+        "expectedLayers": ["controller", "service", "mapper"],
+        "documentationExpected": true,
+        "minIssueCount": 0,
+        "maxIssueCount": 3
+      }
+    },
+    {
+      "id": "normal-002",
+      "category": "NORMAL",
+      "title": "单体 REST 微内核",
+      "description": "仅 web + validation，无中间件依赖，结构简单",
+      "expected": {
+        "requiredRuleIds": [],
+        "forbiddenRuleIds": ["CW-ARCH-CYCLE-001"],
+        "expectedLayers": ["controller", "service"],
+        "documentationExpected": true,
+        "minIssueCount": 0,
+        "maxIssueCount": 2
+      }
+    },
+    {
+      "id": "normal-003",
+      "category": "NORMAL",
+      "title": "工具类库工程",
+      "description": "纯 util 包，无 Web 层，架构分层为 util",
+      "expected": {
+        "requiredRuleIds": [],
+        "forbiddenRuleIds": [],
+        "expectedLayers": ["util"],
+        "documentationExpected": true,
+        "minIssueCount": 0,
+        "maxIssueCount": 1
+      }
+    },
+    {
+      "id": "defect-001",
+      "category": "DEFECT",
+      "title": "空指针风险样例",
+      "description": "未判空的链式调用，应命中空指针相关规则",
+      "expected": {
+        "requiredRuleIds": ["CW-NULL-001"],
+        "forbiddenRuleIds": [],
+        "expectedLayers": ["service"],
+        "documentationExpected": true,
+        "minIssueCount": 1,
+        "maxIssueCount": 5
+      }
+    },
+    {
+      "id": "defect-002",
+      "category": "DEFECT",
+      "title": "资源未关闭样例",
+      "description": "InputStream 未 try-with-resources",
+      "expected": {
+        "requiredRuleIds": ["CW-RESOURCE-001"],
+        "forbiddenRuleIds": [],
+        "expectedLayers": ["service"],
+        "documentationExpected": false,
+        "minIssueCount": 1,
+        "maxIssueCount": 4
+      }
+    },
+    {
+      "id": "defect-003",
+      "category": "DEFECT",
+      "title": "硬编码密钥样例",
+      "description": "源码中出现明文 API Key 字符串",
+      "expected": {
+        "requiredRuleIds": ["CW-SECRET-001"],
+        "forbiddenRuleIds": [],
+        "expectedLayers": ["config"],
+        "documentationExpected": false,
+        "minIssueCount": 1,
+        "maxIssueCount": 3
+      }
+    },
+    {
+      "id": "conflict-001",
+      "category": "CONFLICT",
+      "title": "同 pom 多版本冲突",
+      "description": "同一 artifact 声明两个不同 version",
+      "expected": {
+        "requiredRuleIds": ["CW-DEP-CONFLICT-001"],
+        "forbiddenRuleIds": [],
+        "expectedLayers": [],
+        "documentationExpected": true,
+        "minIssueCount": 1,
+        "maxIssueCount": 5
+      }
+    },
+    {
+      "id": "conflict-002",
+      "category": "CONFLICT",
+      "title": "跨模块版本不一致",
+      "description": "父子模块对同一依赖版本不一致",
+      "expected": {
+        "requiredRuleIds": ["CW-DEP-INCONSISTENT-001"],
+        "forbiddenRuleIds": [],
+        "expectedLayers": [],
+        "documentationExpected": true,
+        "minIssueCount": 1,
+        "maxIssueCount": 4
+      }
+    },
+    {
+      "id": "conflict-003",
+      "category": "CONFLICT",
+      "title": "requirements 钉死两版本",
+      "description": "Python requirements 同包两行不同版本",
+      "expected": {
+        "requiredRuleIds": ["CW-REQ-CONFLICT-001"],
+        "forbiddenRuleIds": [],
+        "expectedLayers": [],
+        "documentationExpected": false,
+        "minIssueCount": 1,
+        "maxIssueCount": 3
+      }
+    },
+    {
+      "id": "nodoc-001",
+      "category": "NO_DOC",
+      "title": "无 README 的老旧 Java 工程",
+      "description": "仅有源码与 pom，无任何文档文件",
+      "expected": {
+        "requiredRuleIds": [],
+        "forbiddenRuleIds": [],
+        "expectedLayers": ["service"],
+        "documentationExpected": false,
+        "minIssueCount": 0,
+        "maxIssueCount": 10
+      }
+    },
+    {
+      "id": "nodoc-002",
+      "category": "NO_DOC",
+      "title": "无 JavaDoc 的遗留模块",
+      "description": "public 类均无注释，适合测文档生成召回",
+      "expected": {
+        "requiredRuleIds": [],
+        "forbiddenRuleIds": [],
+        "expectedLayers": ["unknown"],
+        "documentationExpected": false,
+        "minIssueCount": 0,
+        "maxIssueCount": 8
+      }
+    },
+    {
+      "id": "nodoc-003",
+      "category": "NO_DOC",
+      "title": "混合语言无文档仓库",
+      "description": "Java + 脚本目录，整体缺 README 与 API 说明",
+      "expected": {
+        "requiredRuleIds": [],
+        "forbiddenRuleIds": [],
+        "expectedLayers": [],
+        "documentationExpected": false,
+        "minIssueCount": 0,
+        "maxIssueCount": 6
+      }
+    }
+  ]
+}

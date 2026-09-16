@@ -9,8 +9,21 @@
 > ⚠️ **两条铁律，先看**：
 > 1. **不在服务器上构建**。本机构建好只传 jar。服务器是共享型 CPU，编译会打满它，
 >    还得多占 4.6G 的 Maven 仓库。服务器上只装 **Docker + JDK 17**。
-> 2. **中间件端口一律不绑 0.0.0.0**。`docker-compose.prod.yml` 里全是 `127.0.0.1:xxxx`，
->    配合安全组形成两道防线。要管理控制台走 **SSH 隧道**，不开公网端口。
+> 2. **当前为「线上直连」模式**（2026-09-16）：`deploy/docker-compose.prod.yml` 中间件端口绑 `0.0.0.0`，
+>    网关 `8080` 与各服务经安全组公网可达。Redis **必须设密码**；要收紧时改回 `127.0.0.1:xxxx` + SSH 隧道。
+
+---
+
+## 线上开发速查（47.93.158.48）
+
+| 动作 | 命令 |
+|---|---|
+| 本机一键更新 jar | `.\deploy\update-ecs.ps1`（需先配置 SSH 公钥） |
+| 网关健康检查 | `curl.exe http://47.93.158.48:8080/api/agent-orchestration/ping` |
+| 服务器自检 | `bash /opt/codewisdom/deploy/server-verify.sh` |
+| DeepSeek | 在 `/opt/codewisdom/deploy/.env` 设 `CW_LLM_PROVIDER=deepseek` 与 `CW_DEEPSEEK_API_KEY` |
+
+**SSH 公钥（首次）**：本机 `ssh-keygen -t ed25519`，把 `~/.ssh/id_ed25519.pub` 追加到服务器 `root/.ssh/authorized_keys`。
 
 ---
 

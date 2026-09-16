@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class SchemaMigrationTest {
 
     private static final List<String> EXPECTED_TABLES =
-            List.of("t_project", "t_import_task", "t_file_node");
+            List.of("t_project", "t_import_task", "t_file_node", "t_user");
 
     @Autowired
     private JdbcTemplate jdbcTemplate;

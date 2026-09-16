@@ -18,6 +18,8 @@ mybatis-plus:
     map-underscore-to-camel-case: true
 
 codewisdom:
+  auth:
+    enabled: false
   import:
     # 工作区放在系统临时目录，不放 target/——Git 写出的 pack 文件带只读属性，
     # 会让 maven-clean-plugin 删除 target 时直接失败，把构建卡死。

@@ -28,6 +28,8 @@ public enum ErrorCode {
     IMPORT_ERROR(51000, "项目导入失败"),
     IMPORT_URL_REJECTED(51001, "仓库地址不被允许"),
     ARCHIVE_INVALID(51002, "压缩包非法或已损坏"),
+    AUTH_USERNAME_EXISTS(51010, "用户名已存在"),
+    AUTH_BAD_CREDENTIALS(51011, "用户名或密码错误"),
     ARCHIVE_PATH_TRAVERSAL(51003, "压缩包包含非法路径"),
 
     // ---- code-analysis 52000 ----
