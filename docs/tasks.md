@@ -331,7 +331,7 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 | T-501 | ✅ | 审计规则引擎 + 规则注册机制 | 空指针/未捕获异常/硬编码/死代码规则可插拔 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=RuleEngineTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-502 | ✅ | `pom.xml` 依赖冲突检测（版本冲突/重复/无效） | 构造样例能检出冲突并给出路径 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=PomConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-503 | ✅ | `requirements.txt` 依赖解析与冲突检测 | 同上（Python 侧） | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ReqConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
-| T-504 | ⬜ | 架构隐患规则（循环依赖/分层混乱/职责不单一） | 与 T-404 结果打通，输出统一问题模型 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ArchRiskTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-504 | ✅ | 架构隐患规则（循环依赖/分层混乱/职责不单一） | 与 T-404 结果打通，输出统一问题模型 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ArchRiskTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-505 | ⬜ | 风险分级（高/中/低）+ 问题模型入库 | 每条问题含文件、行号、描述、风险说明、触发场景 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=AuditPipelineTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 
 > **T-501 实现约定**（落在 `AuditIssue` / `AuditRule` / `AuditEngine` / `arch/rules/*`）：
@@ -368,8 +368,41 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 > 另有可插拔验证（自定义规则无需改引擎即生效、引擎不认识任何具体规则）、
 > 不误报验证（被调用的私有方法、`@PostConstruct` 回调、常量字段都不算死代码）、
 > 无调用图时死代码规则安静退出。
-> **阶段 5 门禁实测**：`-Dtest='*Audit*,*Conflict*,*Rule*'` → 33 个测试全绿
-> （`RuleEngineTest` 12 + `PomConflictTest` 9 + `ReqConflictTest` 12），T-504/T-505 落地后会继续自动纳入。
+> **阶段 5 门禁实测**：`-Dtest='*Audit*,*Conflict*,*Rule*,*Arch*'` → 47 个测试全绿
+> （`RuleEngineTest` 12 + `PomConflictTest` 9 + `ReqConflictTest` 12 + `ArchRiskTest` 14），
+> T-505 落地后 `AuditPipelineTest` 会自动纳入。
+>
+> ⚠️ **本卡发现并修正了门禁自身的缺陷**：原命令 `*Audit*,*Conflict*,*Rule*` **不匹配
+> `ArchRiskTest`**——也就是「架构隐患」这张卡不在阶段 5 的门禁里。与阶段 4 曾出现的
+> `*Arch*` 匹配空集是同一类缺陷（模式与测试类名对不上），已补上 `*Arch*`。
+
+> **T-504 实现约定**（落在 `ArchRiskAnalyzer`）：
+> 1. **这一卡做的是「翻译」，不是重新分析**。阶段 4 的三份产物已经是结构化数据
+>    （`LayerReport` / `CycleReport` / `TechStackReport`），本类不重新解析源码、不重新跑图算法——
+>    环检测仍然调用 T-404 的 `CycleDetector`，那是复用。**别又从头写一遍分析。**
+> 2. **三类隐患，每条两个粒度，共六条规则**：
+>    `CW-ARCH-001` 循环依赖（分层环**高危** / 包环中危）；
+>    `CW-ARCH-002` 分层混乱（类级信号冲突**中危** / 包级混杂低危）；
+>    `CW-ARCH-003` 职责不单一（包内类型数过多**中危** / 疑似上帝类低危）。
+> 3. **架构隐患也必须锚在真实文件与行号上**。`DependencyCycle` 里只有模块名（`demo.a` / `CONTROLLER`），
+>    没有位置。解法是让分析器接收「文件 → 类型声明」这份数据（调用方本来就为 `LayerDetector` 准备了），
+>    据此建索引把问题锚到**真正参与的那个类**。不这么做就只能填 `NO_LINE`——架构隐患虽然横跨多个文件，
+>    但「哪个类的声明行」仍比「没有行号」有用得多。
+> 4. **锚点行号会落在注解行而不是 `public class` 行**：这是 T-302 记录的 grammar 行为
+>    （`@RestController` 在 `modifiers` 里，而 `modifiers` 属于 `class_declaration`）。
+>    不是 bug，测试里写明了这一点。
+
+> **T-504 两处防误报**：
+> - **上帝类检查排除 DTO / 实体 / 常量 / 工具 / 异常层**——这些类型本来就该被广泛引用，
+>  把它们报成上帝类全是误报。有专门的负向用例（一个被 16 个类型依赖的 DTO 必须不报）。
+> - **包级混杂定低危且措辞是「需人工判断」**：真实工程里 `common` 包混放 config 与 util 是常态。
+>  阈值（20 个类型、15 个依赖方）是经验值，措辞一律是「建议关注」而不是「违反规范」。
+
+> **T-504 验收证据**：14 个用例。样例工程一次埋三类隐患（互相依赖的 web↔svc、放错包的
+> `@RestController`、21 个类型同包、被 16 个类型依赖的 Hub），共检出 6 条。
+> ①**打通断言**：同一份输入下 `CW-ARCH-001` 的环路径必须与 `CycleDetector` 直接算出来的**一致**
+> ——不是「另外算了一个环」；②分层环高危 / 包环中危、类级冲突中危 / 包级混杂低危，等级逐个断言；
+> ③所有问题都锚在样例里真实存在的文件上且行号为正；④干净工程零产出；⑤输出顺序稳定。
 
 > **T-503 实现约定**（落在 `PythonRequirement` / `RequirementsReader` / `RequirementsConflictAnalyzer`）：
 > 1. **与 Maven 侧是两套语义，不是同一套规则换个文件**。pip 有三处不同的地方，每一处都有专门用例：

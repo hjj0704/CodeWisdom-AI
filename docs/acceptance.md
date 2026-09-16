@@ -84,7 +84,11 @@
 - 构造的缺陷样例集：**高危漏报率为 0**。
 - `pom.xml` 版本冲突样例能检出并给出冲突路径；`requirements.txt` 同理。
 - 架构隐患与阶段 4 结果打通，使用统一问题模型（同一 DTO）。
-- 命令：`mvn -q -pl codewisdom-code-analysis -Dtest='*Audit*,*Conflict*,*Rule*' test`
+- 命令：`mvn -q -pl codewisdom-code-analysis -Dtest='*Audit*,*Conflict*,*Rule*,*Arch*' -Dsurefire.failIfNoSpecifiedTests=false test`
+  （原写的是 `*Audit*,*Conflict*,*Rule*`，**漏掉了 T-504 的 `ArchRiskTest`**——即「架构隐患」那张卡
+  自身不在门禁里。与阶段 4 曾出现的 `*Arch*` 匹配空集是同一类缺陷：模式与测试类名对不上。
+  已按 `RuleEngineTest` / `PomConflictTest` / `ReqConflictTest` / `ArchRiskTest` / `AuditPipelineTest`
+  的实际类名补全。）
 
 ## 阶段 6：文档注释生成
 
