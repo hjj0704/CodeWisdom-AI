@@ -2,6 +2,7 @@ package com.codewisdom.analysis.arch;
 
 import com.codewisdom.analysis.domain.DependencyCoordinate;
 import com.codewisdom.analysis.domain.ImportDeclaration;
+import com.codewisdom.analysis.domain.PythonRequirement;
 import com.codewisdom.analysis.domain.TechStack;
 import com.codewisdom.analysis.domain.TechStackItem;
 import com.codewisdom.analysis.domain.TechStackReport;
@@ -274,9 +275,6 @@ public class TechStackDetector {
     private static final Pattern NPM_ENTRY = Pattern.compile("\"([^\"]+)\"\\s*:\\s*\"([^\"]*)\"");
     private static final Pattern NPM_VERSION_PREFIX = Pattern.compile("^[\\^~>=<v\\s]+");
 
-    private static final Pattern REQUIREMENT_LINE = Pattern.compile(
-            "^([A-Za-z0-9_.\\-]+)\\s*(==|>=|<=|~=|!=|>|<)?\\s*([^\\s;#]*)");
-
     /**
      * 识别整个工程。
      *
@@ -432,40 +430,27 @@ public class TechStackDetector {
     /**
      * {@code requirements.txt}。
      *
-     * <p>包名统一小写并把下划线归一成连字符（PEP 503 的规范化），否则
-     * {@code SQLAlchemy} 与 {@code sqlalchemy} 会被当成两个包。
-     * 只有 {@code ==} 才认为拿到了确切版本；{@code >=} 这类是区间，留空。
+     * <p>解析交给 {@link RequirementsReader}，与依赖冲突检测共用同一份实现（理由同 pom 侧）。
+     * 只有 {@code ==} 钉死的精确版本才算拿到版本号——{@code >=} 这类是区间，
+     * 拿不到「是哪个版本」。
      */
     private static void detectFromRequirements(String path,
                                                String content,
                                                Map<TechStack, TechStackItem> found,
                                                Set<String> unrecognized) {
-        for (String rawLine : content.split("\\R")) {
-            String line = rawLine.trim();
-            if (line.isEmpty() || line.startsWith("#") || line.startsWith("-")) {
+        for (PythonRequirement requirement : RequirementsReader.read(path, content)) {
+            if (!requirement.isParsed()) {
                 continue;
             }
-            Matcher matcher = REQUIREMENT_LINE.matcher(line);
-            if (!matcher.find()) {
-                continue;
-            }
-            String name = normalizePythonName(matcher.group(1));
-            String operator = matcher.group(2);
-            String version = "==".equals(operator) && !matcher.group(3).isBlank()
-                    ? matcher.group(3).trim()
-                    : null;
+            String version = requirement.isPinned() ? requirement.pinnedVersion() : null;
 
-            TechStack stack = PYTHON_PACKAGES.get(name);
+            TechStack stack = PYTHON_PACKAGES.get(requirement.name());
             if (stack == null) {
-                unrecognized.add(name + (version == null ? "" : "==" + version));
+                unrecognized.add(requirement.name() + (version == null ? "" : "==" + version));
                 continue;
             }
-            record(found, stack, version, path + ": " + line);
+            record(found, stack, version, path + ": " + requirement.raw());
         }
-    }
-
-    private static String normalizePythonName(String name) {
-        return name.trim().toLowerCase(Locale.ROOT).replace('_', '-');
     }
 
     // ---- 工具 ----

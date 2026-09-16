@@ -330,7 +330,7 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 |---|---|---|---|
 | T-501 | ✅ | 审计规则引擎 + 规则注册机制 | 空指针/未捕获异常/硬编码/死代码规则可插拔 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=RuleEngineTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-502 | ✅ | `pom.xml` 依赖冲突检测（版本冲突/重复/无效） | 构造样例能检出冲突并给出路径 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=PomConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
-| T-503 | ⬜ | `requirements.txt` 依赖解析与冲突检测 | 同上（Python 侧） | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ReqConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-503 | ✅ | `requirements.txt` 依赖解析与冲突检测 | 同上（Python 侧） | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ReqConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-504 | ⬜ | 架构隐患规则（循环依赖/分层混乱/职责不单一） | 与 T-404 结果打通，输出统一问题模型 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ArchRiskTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-505 | ⬜ | 风险分级（高/中/低）+ 问题模型入库 | 每条问题含文件、行号、描述、风险说明、触发场景 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=AuditPipelineTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 
@@ -368,8 +368,34 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 > 另有可插拔验证（自定义规则无需改引擎即生效、引擎不认识任何具体规则）、
 > 不误报验证（被调用的私有方法、`@PostConstruct` 回调、常量字段都不算死代码）、
 > 无调用图时死代码规则安静退出。
-> **阶段 5 门禁实测**：`-Dtest='*Audit*,*Conflict*,*Rule*'` → 21 个测试全绿
-> （`RuleEngineTest` 12 + `PomConflictTest` 9），T-503~T-505 落地后会继续自动纳入。
+> **阶段 5 门禁实测**：`-Dtest='*Audit*,*Conflict*,*Rule*'` → 33 个测试全绿
+> （`RuleEngineTest` 12 + `PomConflictTest` 9 + `ReqConflictTest` 12），T-504/T-505 落地后会继续自动纳入。
+
+> **T-503 实现约定**（落在 `PythonRequirement` / `RequirementsReader` / `RequirementsConflictAnalyzer`）：
+> 1. **与 Maven 侧是两套语义，不是同一套规则换个文件**。pip 有三处不同的地方，每一处都有专门用例：
+>    <b>环境标记</b>（Maven 没有对应物）、<b>单等号 `=` 会被 pip 拒绝安装</b>、
+>    <b>PEP 503 包名归一化</b>（`zope.interface` 与 `zope-interface` 是同一个包，只把下划线换连字符会漏）。
+> 2. **带环境标记的声明一律不参与冲突判定**：同一条依赖在不同标记下写不同版本是 pip 的<b>标准写法</b>
+>    （`foo==2.7.1 ; python_version<"3.9"` 与 `foo==2.9.0 ; python_version>="3.9"`）。
+>    两个标记是否互斥需要求解标记表达式，本工具不做——<b>不判就不会误报</b>，有负向断言锁定。
+> 3. **只比对 `==` 钉死的精确版本**：区间约束之间能否同时满足是区间求解问题。取舍依据是
+>    requirements.txt 的主流形态就是全钉版本（pip-tools 编译产物、导出的锁文件），
+>    <b>钉版本之间的冲突正是最常见也最该报的那种</b>。
+>    `==1.0rc1` 这类带预发布后缀的也<b>不算</b>精确版本——版本比较规则需要完整实现，本模块不做。
+> 4. **不跟随 `-r` / `-c` 包含的文件**：每个文件独立分析，包含关系由调用方把文件给全。
+>    读取器自作主张去读磁盘上的另一个文件，会让「同一份输入得到同一份输出」这条约定失效。
+> 5. **重复声明与版本冲突不重叠**：这里把「重复」定义为<b>同文件内同包同约束</b>，
+>    所以与钉版本冲突天然互斥，不需要像 T-502 那样额外做抑制。
+> 6. **pom 与 requirements 的解析都抽成了公共静态读取器**，技术栈识别与冲突检测各共用一份。
+>    两轮重构（T-502 的 `PomDependencyReader`、T-503 的 `RequirementsReader`）之后，
+>    T-403 的 14 个用例始终全绿，行为无变化。
+
+> **T-503 验收证据**：12 个用例。两份 requirements 文件（主 + dev）：
+> ①同一文件内同包钉两个版本判**高危**且锚在第二处；②跨文件版本不一致判**中危**，
+> 测试里**断言描述不含「冲突」二字**且风险说明含「是合法的」「本工具判不出」；
+> ③同文件同约束重复判低危；④`django=4.2` 单等号判无效操作符；
+> ⑤**三条负向断言**：带标记的两个版本不报冲突、区间约束不参与判定、选项行与注释行完全跳过；
+> ⑥冲突路径含每一处声明的 `文件:行号`；⑦extras 与行内注释不影响解析；⑧输出与入参顺序无关。
 
 > **T-502 实现约定**（落在 `DependencyCoordinate` / `PomDependencyReader` / `PomConflictAnalyzer`）：
 > 1. **检测的是「声明级」冲突，不是运行时冲突**——这条口径必须说死，否则报告会被当成依赖仲裁结果：
