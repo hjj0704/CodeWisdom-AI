@@ -19,3 +19,21 @@ management:
 logging:
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-}] %logger{36} - %msg%n"
+
+# LLM 客户端默认参数（T-601 抽象层；真实 Provider 接入留待 tech-spike 验证后）
+codewisdom:
+  llm:
+    enabled: true
+    # mock | deepseek（真实模型需配置 CW_DEEPSEEK_API_KEY，见 .env.example）
+    provider: ${CW_LLM_PROVIDER:mock}
+    timeout-ms: 30000
+    max-retries: 2
+    retry-backoff-ms: 50
+    fallback-message: "【辅助分析不可用】模型调用失败，请稍后重试或人工补充。"
+    disabled-message: "【LLM 已关闭】未生成 AI 内容，请人工补充。"
+    deepseek:
+      base-url: https://api.deepseek.com
+      model: deepseek-chat
+      api-key: ${CW_DEEPSEEK_API_KEY:}
+  doc-gen:
+    enabled: true

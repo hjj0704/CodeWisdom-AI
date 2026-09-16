@@ -1,0 +1,28 @@
+# 可选：从仓库根目录 .env 加载密钥（.env 已 gitignore，不进版本库）
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: jdbc:mysql://localhost:3306/codewisdom?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${CW_DB_USER:cw}
+    password: ${CW_DB_PASSWORD:cw123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+    table: flyway_schema_history_agent_orchestration
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+codewisdom:
+  llm:
+    provider: ${CW_LLM_PROVIDER:deepseek}
+  minio:
+    enabled: true
+    endpoint: ${CW_MINIO_ENDPOINT:http://127.0.0.1:9000}
+    access-key: ${CW_MINIO_USER:codewisdom}
+    secret-key: ${CW_MINIO_PASSWORD:codewisdom123}

@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:codewisdom_agent;MODE=MySQL;DATABASE_TO_LOWER=TRUE;CASE_INSENSITIVE_IDENTIFIERS=TRUE;DB_CLOSE_DELAY=-1
+    username: sa
+    password: ""
+    driver-class-name: org.h2.Driver
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    clean-disabled: false
+    table: flyway_schema_history_agent_orchestration
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+
+codewisdom:
+  llm:
+    provider: mock
+  minio:
+    enabled: false
