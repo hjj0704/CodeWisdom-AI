@@ -1,0 +1,23 @@
+# 本地开发档：需要本机可用的 MySQL 8（当前由 docker-compose 提供）。
+# 没有 Docker/MySQL 时用 test 档跑测试——测试档走 H2(MODE=MySQL)，不依赖中间件。
+#
+# 凭据变量名与 docker-compose.yml 的 MYSQL_USER / MYSQL_PASSWORD **刻意一致**，
+# 且默认值相同：一处配置两边生效，避免「容器建的用户名」与「应用的连接用户名」对不上。
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/codewisdom?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${CW_DB_USER:cw}
+    password: ${CW_DB_PASSWORD:cw123456}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    # ⚠️ **必须**给每个服务指定独立的历史表。
+    # 多个服务共用同一个库 `codewisdom`，各自都有 V1__ 开头的脚本；
+    # Flyway 的版本号只在**单个历史表内**唯一，共用默认的 flyway_schema_history
+    # 会直接报「版本重复 / 校验和不匹配」。新增服务时照抄这一行、换个后缀。
+    table: flyway_schema_history_code_analysis

@@ -34,8 +34,12 @@ code-analysis 没有持久化层，半接数据源会让 T-105 统一接入时�
 **5 个容器全部 healthy**，且逐个做了真实可用性验证（MySQL 8.0.46 业务账号可连、Redis 读写、
 Nacos 命名服务与控制台、MinIO 健康端点、RabbitMQ 诊断与管理台）。
 
-**下一批候选**：T-008（MinIO S5 冒烟）、T-105（各服务接入 MySQL + Flyway，**并接手 T-505
-移入的审计问题入库**）、T-103/T-104（网关 Nacos + OpenAPI 聚合）。
+**T-105 进行中**：code-analysis 已接入 MySQL + MyBatis-Plus + Flyway，
+**并在真实 MySQL 8.0.46 上验证**（自动建表 + 真实读写，S8 通过）；
+其余服务待各自领域表落地时按同一形状接入（见 tasks.md 阶段 1B 的说明）。
+
+**下一批候选**：T-008（MinIO S5 冒烟）、T-103/T-104（网关 Nacos + OpenAPI 聚合）、
+T-205/T-206（MinIO 归档 / RabbitMQ 异步）、T-305（Redis 缓存）。
 
 ⚠️ **本机 Docker 的两个环境前提**（不在仓库里，已备份）：
 ① Docker Hub **直连不可达**，必须走镜像加速器（已配在 `~/.docker/daemon.json`）；
@@ -50,7 +54,7 @@ Nacos 命名服务与控制台、MinIO 健康端点、RabbitMQ 诊断与管理�
 |---|---|---|---|
 | 阶段 0 | 技术验证与文档初始化 | 🟡 进行中（Docker 已就绪，回来补 T-008） | 8 / 9 |
 | 阶段 1A | 工程骨架（零中间件） | ✅ **已完成** | 3 / 3 |
-| 阶段 1B | 中间件接入 | ⬜ 已解锁（Docker 就绪，下一批做） | 0 / 3 |
+| 阶段 1B | 中间件接入 | 🟡 进行中 | 0 / 3（T-105 部分完成） |
 | 阶段 2 | 项目多源导入 | ✅ **已完成**（T-205、T-206 挂起） | 4 / 6 |
 | 阶段 3 | 代码解析服务 | ✅ **已完成**（T-305 挂起） | 4 / 5 |
 | 阶段 4 | 架构逆向 | ✅ **已完成** | 4 / 4 |
@@ -144,6 +148,7 @@ Nacos 命名服务与控制台、MinIO 健康端点、RabbitMQ 诊断与管理�
 | S3 | LangGraph4j 建图执行 | ✅ **通过** | 条件分支 + HITL 循环边跑通；执行序列 `__START__→audit→fix→hitl→fix→hitl→__END__` |
 | S4 | JGit 拉取公开仓库 | ✅ **通过** | 克隆 Gitee RuoYi：706 文件 / branch=master / head=7995a83e |
 | S5 | MinIO 连通 | ⬜ 待做 | Docker 已就绪（MinIO 容器 healthy），T-008 验建桶/传/下/删 |
+| S8 | **真实 MySQL 8 建表** | ✅ **通过** | 2026-09-16 实测：服务启动 → Flyway 自动建 `t_audit_issue` → 真实 INSERT 成功（**R-13 对 code-analysis 这一份已闭环**） |
 | S6 | Nacos 注册发现 | ⬜ 待做 | Docker 已就绪（Nacos 容器 healthy），待 T-103 验客户端注册 |
 | S7 | docker compose 起中间件 | ✅ **通过** | **5 个容器全部 healthy** 且逐个真实可用性验证（2026-09-16）；`docker-compose.yml` 已入库 |
 
@@ -216,6 +221,10 @@ Nacos 命名服务与控制台、MinIO 健康端点、RabbitMQ 诊断与管理�
 | 2026-09-16 | T-003 | **Docker 就绪**：Docker Desktop 29.8.0 + Compose v5.5.1 实测可用；配镜像加速器（Docker Hub 直连不通）、改 Docker 为直连（系统代理指向未运行的 7890）；`docker-compose.yml` 写好并通过 config 校验 | `docker-compose.yml`、`~/.docker/daemon.json` |
 | 2026-09-16 | T-003 | **完成：5 个容器全部 healthy** + 逐个真实可用性验证；S7 通过 | `docker-compose.yml` |
 | 2026-09-16 | T-003 | 踩到 Nacos 3.x **四个**差异：强制鉴权令牌、就绪探针 v1 端点返回 410、控制台在**根路径** `/`（2.x 是 `/nacos/`，实测后者 500）、控制台端口容器内 8080（避开网关） | `docker-compose.yml` |
+| 2026-09-16 | T-105 | **code-analysis 接入 MySQL + MyBatis-Plus + Flyway**：pom 依赖、`application-local.yml`、`t_audit_issue` 建表脚本、entity、mapper、`MetaObjectHandler`；**接手 T-505 移入的审计问题入库** | `codewisdom-code-analysis/**` |
+| 2026-09-16 | T-105 | **真实 MySQL 8.0.46 验证通过**：服务启动 → Flyway 自动建表 → 真实 INSERT 成功；S8 通过（**R-13 对 code-analysis 这一份闭环**） | `AuditPersistenceTest` |
+| 2026-09-16 | T-105 | **三个关键点**：① **Flyway 历史表按服务隔离**（共用库 + 各自的 `V1__` 会撞版本号）；② **`TRIGGER` 是 MySQL 保留字**，列名改 `trigger_snippet`；③ 接入数据源后测试必须打 `test` 档走 H2，**保持「无 Docker 也能全绿」** | `application-local.yml`、`application-test.yml`、`V1__audit_schema.sql` |
+| 2026-09-16 | T-105 | **修正 compose 凭据不一致**：compose 建的用户是 `codewisdom`，而应用配置读 `${CW_DB_USER:cw}` —— 对不上。已改用**同一组变量名与默认值**，一处配置两边生效 | `docker-compose.yml` |
 | 2026-09-16 | T-003 | **修正健康检查的错误推理**：第一版用 root 探 MySQL 并注释「业务用户未初始化完成前会一直失败」——恰恰相反，用 root 会**提前变绿**（MySQL 初始化时先起临时实例）。改用业务账号探 | `docker-compose.yml` |
 | 2026-09-16 | T-505 | **阶段 5 收尾**：`acceptance.md` 阶段 5 六条验收标准**无一条涉及数据库**，已全部满足；门禁 57 个测试全绿 | `docs/tasks.md` |
 | 2026-09-16 | T-504 | **修复阶段 5 门禁漏卡**：原命令 `*Audit*,*Conflict*,*Rule*` 不匹配 `ArchRiskTest`，「架构隐患」这张卡不在自己的阶段门禁里。与阶段 4 的 `*Arch*` 空集同类，已补 `*Arch*` | `docs/acceptance.md` |

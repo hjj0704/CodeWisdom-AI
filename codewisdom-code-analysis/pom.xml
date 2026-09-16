@@ -48,6 +48,34 @@
             <version>0.23.4</version>
         </dependency>
 
+        <!-- 持久化：审计问题入库（T-105）。依赖形状与 codewisdom-project-resource 完全一致，
+             版本全部由父 pom 或 Spring Boot BOM 管理，不在这里写版本号 -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
+
+        <!-- 测试用内存库：让 `mvn clean verify` 在**没有 Docker/MySQL** 的机器上也能全绿。
+             真实 MySQL 的验证由 local 档 + 手工验证承担，两者不互相替代。 -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>

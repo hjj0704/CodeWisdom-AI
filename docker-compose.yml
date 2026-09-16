@@ -36,8 +36,11 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${CW_MYSQL_ROOT_PASSWORD:-codewisdom-root}
       MYSQL_DATABASE: ${CW_MYSQL_DATABASE:-codewisdom}
-      MYSQL_USER: ${CW_MYSQL_USER:-codewisdom}
-      MYSQL_PASSWORD: ${CW_MYSQL_PASSWORD:-codewisdom}
+      # ⚠️ 变量名与各服务 application-local.yml 里的 ${CW_DB_USER} / ${CW_DB_PASSWORD}
+      #    **保持一致**，且默认值与那边完全相同。否则容器建的用户名和应用的连接用户名
+      #    会对不上——应用报「Access denied」时，人第一反应是查密码，很难想到是两处默认值不一致。
+      MYSQL_USER: ${CW_DB_USER:-cw}
+      MYSQL_PASSWORD: ${CW_DB_PASSWORD:-cw123456}
       # 建表脚本避开 MySQL 专有语法（见 architecture.md §9），显式指定排序规则
       TZ: Asia/Shanghai
     command:

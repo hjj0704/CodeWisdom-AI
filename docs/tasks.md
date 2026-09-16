@@ -81,13 +81,42 @@ T-003 / T-008  ⏸️ 挂起，等 Docker 就绪
 | T-102 | ✅ | `codewisdom-common`：TraceId 透传（上游复用 / 自动生成 / 回写响应头 / MDC 清理） | 4 项行为均有单测 | `mvn -q -pl codewisdom-common -Dtest=TraceIdFilterTest test` |
 | T-106 | ✅ | 各服务 `application.yml` + 端口/service-name；网关 4 条静态路由（Nacos 就绪前可直连验证） | 本地 profile 不依赖任何中间件即可启动，`/ping` 返回统一响应体 | `mvn clean verify` |
 
-### 1B —— 🐳 需要中间件（Docker 就绪后执行）
+### 1B —— 🐳 需要中间件（**Docker 已就绪，进行中**）
+
+> **T-105 进度（2026-09-16）：code-analysis 已接入并验证，其余服务待各自领域表落地**
+>
+> **已在真实 MySQL 8.0.46 上跑通的**（不只是 H2）：
+> ```
+> Migrating schema `codewisdom` to version "1 - audit schema"
+> Successfully applied 1 migration to schema `codewisdom`, now at version v1
+> Started CodeAnalysisApplication in 6.634 seconds
+> ```
+> 表结构核验：`t_audit_issue` + 独立历史表 `flyway_schema_history_code_analysis`，
+> `created_at datetime(3)`、四个索引齐全；**真实 INSERT 成功**。
+>
+> **三个必须踩过的点**：
+> 1. **Flyway 历史表必须按服务隔离**。多个服务共用同一个库 `codewisdom`，各自都有
+>    `V1__` 开头的脚本，而 Flyway 的版本号<b>只在单个历史表内</b>唯一——共用默认的
+>    `flyway_schema_history` 会直接报「版本重复 / 校验和不匹配」。
+>    已给两个服务各配一个 `spring.flyway.table`（**新增服务必须照做**）。
+> 2. **`TRIGGER` 是 MySQL 保留字**，审计问题的「触发场景」列不能叫 `trigger`，
+>    已改名 `trigger_snippet`；同理行号用 `line_no` 而不是 `line`。
+> 3. **接入数据源后，测试必须打 `test` 档**。classpath 上有了数据源自动配置后，
+>    不打 profile 的上下文测试会去找并不存在的 MySQL 而启动失败。
+>    **正确做法不是「跳过数据源」而是走 H2 测试档**——那样连建表脚本都真的跑了一遍，
+>    且 `mvn clean verify` 在**没有 Docker/MySQL 的机器上依然全绿**（这是刻意保持的性质）。
+>
+> **为什么其余服务暂不接入**：它们目前**没有领域表**（t_analysis_result / t_doc_record /
+> t_fix_record / t_hitl_review / t_eval_report 都属后续阶段）。只加依赖与数据源配置、
+> 不建任何表，是**死配置**：不产生价值，却让每个服务的上下文测试都要多带一个 profile。
+> 该在各自领域表落地的那张卡里接入，形状照抄 code-analysis 这一份。
+
 
 | 卡号 | 任务 | 验收 | 测试命令 |
 |---|---|---|---|
 | T-103 | 🐳 `gateway`：Nacos 注册 + 路由 + CORS + Sentinel 限流 | 经网关能打到下游服务 `/actuator/health` | `curl -i http://localhost:8080/code-analysis/actuator/health` |
 | T-104 | 🐳 `gateway`：springdoc 聚合下游 OpenAPI | `/v3/api-docs` 返回合并后的 JSON（含各服务 tag） | `curl -s http://localhost:8080/v3/api-docs \| head -c 200` |
-| T-105 | 🐳 各服务接入 MySQL + MyBatis-Plus + Flyway 基线脚本。**并接手 T-505 移入的「审计问题入库」**：为 code-analysis 建 `t_audit_issue` 表 + entity + mapper（T-505 已完成模型与报告，只差落库） | 启动自动建表，`SELECT 1` 通 | `mvn -q -pl evaluation-export test` |
+| T-105 | 🟡 | 各服务接入 MySQL + MyBatis-Plus + Flyway 基线脚本。**并接手 T-505 移入的「审计问题入库」**。**code-analysis 已完成并在真实 MySQL 上验证**；其余服务待各自领域表落地时按同一形状接入 | 启动自动建表、真实读写通 —— **code-analysis ✅** | `mvn -q -pl codewisdom-code-analysis -am -Dtest=AuditPersistenceTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 
 ## 阶段 2：项目多源导入
 
