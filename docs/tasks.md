@@ -221,7 +221,7 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 |---|---|---|---|
 | T-401 | ✅ | 包结构/分层识别（controller/service/mapper/...） | 分层归类正确率在样例集上达标 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=LayerDetectTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-402 | ✅ | Mermaid 架构图生成（模块图/依赖拓扑图） | 输出可被 Mermaid 解析，前端可渲染 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=MermaidGenTest -Dsurefire.failIfNoSpecifiedTests=false test` |
-| T-403 | ⬜ | 技术栈识别（Spring/MyBatis/Vue/...） | 对样例工程识别结果与标注一致 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=TechStackTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-403 | ✅ | 技术栈识别（Spring/MyBatis/Vue/...） | 对样例工程识别结果与标注一致 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=TechStackTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-404 | ⬜ | 模块循环依赖检测 | 对构造的循环依赖样例能检出并给出环路径 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=CycleDetectTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 
 > **T-401 实现约定**（落在 `LayerKind` / `LayerAssignment` / `LayerReport` / `LayerDetector`）：
@@ -268,6 +268,36 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 > 且**专有一条负向用例**断言校验器会拒绝坏图；没有它，「校验通过」可能只是校验器永远返回通过。
 > ⚠️ **口径**：本机只能验到**解析**，验不到**渲染出 SVG**（jsdom 无布局引擎，`getBBox` 不存在）。
 > 所以只能说「图能被官方解析器解析」，**不能说「图能渲染」**，详见 `tech-spike.md` F-17。
+
+> **T-403 实现约定**（落在 `TechStack` / `TechStackItem` / `TechStackReport` / `TechStackDetector`）：
+> 1. **技术目录是有边界的枚举**，不是「什么都能识别」——为的是结果可枚举、可比对。
+>    代价是目录外的技术认不出，因此 `unrecognized()` 把**匹配不上任何规则的依赖坐标原样列出**，
+>    「没认出来」必须可见，不能悄悄消失。
+> 2. **三路证据缺一不可**：import 前缀（没有 pom 也能认框架）、注解名（Spring MVC 的**唯一可靠证据**，
+>    因为 `spring-boot-starter-web` 也会被非 MVC 项目当 HTTP 客户端引）、依赖文件坐标（**版本的唯一来源**，
+>    也是 Python 与前端的唯一证据）。
+> 3. **证据是一等公民**：每条结果都必须能回答「凭什么说是它」，空证据视为缺陷，有测试断言。
+> 4. **`@Mapper` 不进注解规则表**——MyBatis 与 MapStruct 同名，光看注解简单名分不出来。
+>    只认 import 与依赖坐标，分不出来就不认，不掷硬币。
+> 5. **版本解析不出就是 `null`**：Maven 的 `${property}` 会回查 `<properties>`，
+>    回查不到留空；**绝不把 `${...}` 原文当版本号输出**——那比没有版本更糟，
+>    它会以「看起来像个版本」的样子混进架构说明书。npm 的 `^`/`~` 与 requirements 的 `>=`
+>    只剥前缀不做区间求解，且**只有 `==` 才认为拿到了确切版本**。
+
+> **T-403 实测发现**：
+> - **MyBatis 的核心包是 `org.apache.ibatis` 不是 `org.mybatis`**（`@Mapper`、`SqlSession` 都在前者，
+>   `org.mybatis` 只是 mybatis-spring 这类集成包）。只写一个前缀会**漏掉大半个真实项目**，
+>   而且是静默漏——现象是「MyBatis 没被识别」，看不出是规则写漏了。已两个都收。
+> - **`package.json` 必须在 `dependencies` 块内取值**：整文件抓键值对会把 `name`/`version`/`scripts`
+>   这些元数据当成「未识别依赖」，把未识别清单变成噪音。有负向断言锁住。
+> - **Python 包名要按 PEP 503 归一化**（小写 + 下划线转连字符），否则 `SQLAlchemy` 与 `sqlalchemy`
+>   会当成两个包。
+
+> **T-403 验收证据**：14 个用例。样例工程 = Spring Boot + MyBatis-Plus 的 Java 后端
+> + Vue 3 前端 + Python 依赖清单，**命中 21 项 / 未识别 3 项**，测试里打印实测值。
+> 断言是**双向**的（`containsExactlyInAnyOrderElementsOf`）：多认一项和少认一项都要红。
+> ⚠️ **口径**：样例是本卡自建的，只说明规则与标注一致，**不等于真实工程识别准确**；
+> 且识别的是「工程里**声明或引用**了这项技术」，**不是**「这项技术在运行」。
 
 ## 阶段 5：缺陷与依赖审计
 

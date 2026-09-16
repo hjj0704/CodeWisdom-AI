@@ -2,7 +2,7 @@
 
 > **用途**：一页看清「哪里做完了、哪里没做完」。明天开工把这份文件发给我即可，无需回溯上下文。
 > **更新于**：2026-09-16 收工
-> **最新提交**：`feat(code-analysis): Mermaid 架构图生成（T-402）`，与 `origin/main` 一致
+> **最新提交**：`feat(code-analysis): 技术栈识别（T-403）`，与 `origin/main` 一致
 > **仓库**：https://gitee.com/han-jiajiemm/CodeWisdom.git
 >
 > （这里刻意不写 commit 短哈希：写哈希就得在同一提交里改，哈希随之变化，永远对不上。
@@ -12,23 +12,23 @@
 
 ## 一、一句话状态
 
-**阶段 0 / 1A / 2 / 3 已完成（阶段 3 的 T-305 因 Redis 挂起）；阶段 4 完成 2/4。**
-`mvn clean verify` → **7 模块全绿，335 个测试，0 失败 0 跳过**。
+**阶段 0 / 1A / 2 / 3 已完成（阶段 3 的 T-305 因 Redis 挂起）；阶段 4 完成 3/4。**
+`mvn clean verify` → **7 模块全绿，349 个测试，0 失败 0 跳过**。
 
 | 快速数字 | 值 |
 |---|---|
-| 完成任务卡 | **20 / 62**（另有 14 张因缺 Docker 挂起） |
-| 测试 | **335 个，0 失败 0 跳过**（common 12 / gateway 1 / project-resource 210 / code-analysis 107 / agent-orchestration 4 / evaluation-export 1） |
-| 主代码 | 62 个 Java 文件 / 5890 行 |
-| 测试代码 | 31 个 Java 文件 / 5873 行（测试比主代码还多） |
-| 提交 | 13 个，全部已推送 |
+| 完成任务卡 | **21 / 62**（另有 14 张因缺 Docker 挂起） |
+| 测试 | **349 个，0 失败 0 跳过**（common 12 / gateway 1 / project-resource 210 / code-analysis 121 / agent-orchestration 4 / evaluation-export 1） |
+| 主代码 | 66 个 Java 文件 / 6691 行 |
+| 测试代码 | 32 个 Java 文件 / 6301 行（测试与主代码量级相当） |
+| 提交 | 15 个，全部已推送 |
 | 文档 | 8 份（`CLAUDE.md` + `docs/*.md`）+ 1 个测试工具（`tools/mermaid-verify/`） |
 
 > ⚠️ **基线数字更正**：此前文档记的基线是 283，长期实测为 **284**（少算 1 个）。
-> T-304 +24 → 308；T-401 +16 → 324；T-402 +11 → **335**。
+> T-304 +24 → 308；T-401 +16 → 324；T-402 +11 → 335；T-403 +14 → **349**。
 >
 > ⚠️ **无 Node 的机器**：`MermaidGenTest` 的 3 个官方解析器用例会**显式跳过**并打印启用命令，
-> 此时是 **332 通过 + 3 跳过**，不是失败。启用：`cd tools/mermaid-verify && npm install`。
+> 此时是 **346 通过 + 3 跳过**，不是失败。启用：`cd tools/mermaid-verify && npm install`。
 
 ---
 
@@ -41,7 +41,7 @@
 | 1B | 中间件接入 | ⏸️ 挂起 | 0 / 3 |
 | 2 | 项目多源导入 | ✅ 完成 | 4 / 6（2 张挂起） |
 | 3 | 代码解析服务 | ✅ 完成（T-305 挂起） | 4 / 5 |
-| 4 | 架构逆向 | 🟡 **进行中** | 2 / 4 |
+| 4 | 架构逆向 | 🟡 **进行中** | 3 / 4 |
 | 5 | 缺陷与依赖审计 | ⬜ 未开始 | 0 / 5 |
 | 6 | 文档注释生成 | ⬜ 未开始 | 0 / 4 |
 | 7 | 修复建议 / Diff / HITL | ⬜ 未开始 | 0 / 4 |
@@ -56,7 +56,7 @@
 
 ## 三、任务卡逐条清单
 
-### ✅ 已完成（20 张）
+### ✅ 已完成（21 张）
 
 | 卡号 | 任务 | 关键证据 |
 |---|---|---|
@@ -80,6 +80,7 @@
 | T-304 | **import 与跨文件调用图** | 7 文件样例工程断言 12 条内部边 + 2 条外部边；递归 / `this(...)` / 同类互调三类自环噪音分两级滤掉；歧义按需导入判未解析；继承方法挂到真正声明的父类型 |
 | T-401 | **包结构与分层识别** | 自建样例集 32 个类型 **100%（32/32）**；四信号分离（路径/注解/包名/类型名），冲突可查；`model` 等歧义段不猜，认不出显式列 UNKNOWN |
 | T-402 | **Mermaid 架构图生成** | 分层图 + 包拓扑图；**用 `mermaid@11.6.0` 官方解析器真校验**（含断言「坏图必须被拒」的负向用例）。⚠️ 只验到解析，**未验渲染** |
+| T-403 | **技术栈识别** | Java + Vue + Python 三栈样例工程**命中 21 项 / 未识别 3 项**，**双向**断言（多认少认都要红）；每条结果强制带证据；`@Mapper` 在 MyBatis 与 MapStruct 里同名，不猜 |
 
 ### ⏸️ 挂起 —— 全部因为**本机没有 Docker**（14 张）
 
@@ -107,8 +108,7 @@
 
 | 卡号 | 任务 | 所属阶段 |
 |---|---|---|
-| **T-403** | **技术栈识别（Spring/MyBatis/Vue/...）** ← **下一张** | 阶段 4 |
-| T-404 | 循环依赖检测（可直接吃 `CallGraph.typeEdges()`） | 阶段 4 |
+| **T-404** | **模块循环依赖检测（可直接吃 `CallGraph.typeEdges()`）** ← **下一张** | 阶段 4 |
 | T-501~T-505 | 审计规则引擎 / 依赖冲突 / 架构隐患 / 风险分级 | 阶段 5 |
 | T-601~T-604 | LLM 抽象层 / 注释生成 / README / 文档产物 | 阶段 6 |
 | T-701~T-704 | 修复建议 / Diff / HITL 状态机 / 全图串联 | 阶段 7 |
@@ -120,21 +120,20 @@
 ## 四、明天怎么开始
 
 ```bash
-# 1. 跑基线，确认起点正确（预期：7 模块 SUCCESS，335 测试，0 失败 0 跳过）
-#    没有 Node 的机器上是 332 通过 + 3 跳过（MermaidGenTest 的官方解析器用例显式跳过）
+# 1. 跑基线，确认起点正确（预期：7 模块 SUCCESS，349 测试，0 失败 0 跳过）
+#    没有 Node 的机器上是 346 通过 + 3 跳过（MermaidGenTest 的官方解析器用例显式跳过）
 cd D:/CodeWisdom
 mvn clean verify
 
 # 2. 下一张卡
-#    T-403 —— 技术栈识别（Spring/MyBatis/Vue/...）
+#    T-404 —— 模块循环依赖检测（阶段 4 收尾卡）
 #    涉及模块：codewisdom-code-analysis
-#    现成输入：JavaDependencyExtractor.extractImports()（判 Spring/MyBatis 关键字）
-#             LayerReport（分层证据）、FileTreeStats 的文件清单（pom.xml / requirements.txt / package.json）
-#    验收：对样例工程识别结果与标注一致
-#    测试：mvn -q -pl codewisdom-code-analysis -am -Dtest=TechStackTest -Dsurefire.failIfNoSpecifiedTests=false test
+#    现成输入：CallGraph.typeEdges()（类型级调用边，已去自环）
+#    验收：对构造的循环依赖样例能检出并给出完整环路径
+#    测试：mvn -q -pl codewisdom-code-analysis -am -Dtest=CycleDetectTest -Dsurefire.failIfNoSpecifiedTests=false test
 ```
 
-然后对我说：**「先读 CLAUDE.md、docs/progress.md、docs/tasks.md。当前任务：T-403」** 即可。
+然后对我说：**「先读 CLAUDE.md、docs/progress.md、docs/tasks.md。当前任务：T-404」** 即可。
 
 ---
 
@@ -151,6 +150,7 @@ mvn clean verify
 | **Spring AI** | 🟡 `spring-ai-bom 2.0.1` 是否要求 Boot 4.x **未验证**；引入前必须先验。 |
 | **Mermaid 图** | 🟢/🟡 **拆开说**：图能被 Mermaid **官方解析器解析**已实测（`mermaid@11.6.0`，与前端同一份语法，接入测试并有负向用例）；但**渲染出 SVG 本机验不了**（jsdom 无布局引擎，`mermaid.render` 报 `getBBox is not a function`）。**只能说「能被解析」，不能说「能渲染」**，渲染留到阶段 10 用真实浏览器验。 |
 | **分层识别准确率** | 🟡 **100% 只在 T-401 自建样例集（32 个类型）上成立**，样例是自己标的，**不能外推成「真实工程识别准确」**。真实工程准确率需独立标注的工程另测。 |
+| **技术栈识别** | 🟡 是「**声明级**」不是「运行级」：依赖引了不用、import 了没跑都会被识别出来；目录外的技术一律认不出。**只能说「工程里声明或引用了 X」，不能说「项目在用 X」**。且 21/3 的命中数只在 T-403 自建样例上成立。 |
 
 **表述纪律**：所有 AI 分析结论一律说「辅助分析结果，需人工确认」，禁止说「完全自动保证准确」。
 
@@ -174,13 +174,14 @@ mvn clean verify
 | 10 | **通配符 import 的 `scoped_identifier` 文本不含 `.*`** | 在文本里找 `*` 永远找不到，通配符被当成普通导入，解析结果错得无声无息 |
 | 11 | **静态导入的最后一段是成员名不是类型名** | 建「简单名 → 类型」映射会把 `requireNonNull` 当成类；无接收者调用则被挂到调用方自己头上，产出**指向自身的假边** |
 | 12 | **路径标记写成 `/src/test/`（带前导斜杠）** | 工程内路径是相对路径 `src/test/java/...`，永远匹配不上；**而且匹配不上时不报错**，只是静默把测试类混进分层统计，架构图跟着失真 |
+| 13 | **MyBatis 前缀写成 `org.mybatis`（漏了 `org.apache.ibatis`）** | MyBatis 的**核心**包是 `org.apache.ibatis`（`@Mapper`、`SqlSession` 都在这），`org.mybatis` 只是集成包。只写后者会**静默漏掉大半个真实项目**，现象是「MyBatis 没被识别」，看不出是规则写漏了 |
 
 > 另有若干 Tree-Sitter grammar 的实测细节（`throws` 子句无字段名、`spread_parameter` 字段为空、
 > 参数注解在 `modifiers` 里、带注解的类型起始行指向注解行、`import_declaration` 与
 > `method_reference` 无字段名、`method_invocation.object` 缺失时的空节点判定、`type_arguments`
 > 在 `name` 之前……）已记录在 `docs/tasks.md` 阶段 3 小节与 `docs/tech-spike.md`（F-14 ~ F-16）。
 >
-> **共同点**：第 9~12 条全都是「不报错、只是结果少一点或错一点」的类型。写新解析逻辑时，
+> **共同点**：第 9~13 条全都是「不报错、只是结果少一点或错一点」的类型。写新解析逻辑时，
 > 光有正向断言不够，**必须补负向断言**（「这个不该出现」）——第 12 条就是靠
 > 「测试类应判 TEST」的负向断言才抓到的，前面所有正向断言都是绿的。
 
@@ -194,7 +195,7 @@ mvn clean verify
 | **`docs/STATUS.md`** | **本文件**，一页看完成度 |
 | `docs/tasks.md` | 找下一张卡的具体要求与验收标准 |
 | `docs/progress.md` | 变更日志、风险台账、冒烟矩阵 |
-| `docs/tech-spike.md` | 技术验证结论与实测发现（F-1 ~ F-13） |
+| `docs/tech-spike.md` | 技术验证结论与实测发现（F-1 ~ F-17） |
 | `docs/architecture.md` | 微服务拆分、实现约定（§9 全部是踩坑总结） |
 | `docs/acceptance.md` | 各阶段验收标准 |
 | `docs/spec.md` | 规范版需求 |

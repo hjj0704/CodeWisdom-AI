@@ -10,19 +10,18 @@
 **明日从这里开始**：
 
 1. 读 `CLAUDE.md` → `docs/progress.md`（本节）→ `docs/tasks.md`（阶段 4）。
-2. **下一张卡：T-403 —— 技术栈识别（Spring/MyBatis/Vue/...）**
+2. **下一张卡：T-404 —— 模块循环依赖检测**（阶段 4 收尾）
 3. 起手前先跑一次基线：`mvn clean verify`
-   预期：**7 模块 SUCCESS，335 个测试，0 失败 0 跳过**
+   预期：**7 模块 SUCCESS，349 个测试，0 失败 0 跳过**
    （若机器上没有 Node，`MermaidGenTest` 的 3 个官方解析器用例会**显式跳过**并打印启用办法，
-   此时是 **332 通过 + 3 跳过**，不是失败。）
+   此时是 **346 通过 + 3 跳过**，不是失败。）
 4. 工作模式：自主执行，每张卡完成后用中文详细提交信息 commit + `git push origin main`。
 5. `github.com` 本机不可达（R-08），需要真实仓库验证时用 **Gitee**。
 
-**最新提交**：`feat(code-analysis): Mermaid 架构图生成（T-402）`（与 `origin/main` 一致）
+**最新提交**：`feat(code-analysis): 技术栈识别（T-403）`（与 `origin/main` 一致）
 
-**已解锁**：阶段 2、阶段 3 非挂起卡全部完成；阶段 4 完成 2/4。
-T-403 可直接复用 `JavaDependencyExtractor.extractImports()`（判 Spring/MyBatis 关键字）、
-`LayerReport`（分层证据）与文件树里的依赖文件清单（`pom.xml` / `requirements.txt` / `package.json`）。
+**已解锁**：阶段 2、阶段 3 非挂起卡全部完成；阶段 4 完成 3/4，做完 T-404 阶段 4 即收尾。
+T-404 直接吃 `CallGraph.typeEdges()`（类型级调用边，已去自环）。
 
 **仍挂起（等 Docker）**：T-003、T-008、T-103~T-105、T-205、T-206、T-305、阶段 8 部分、阶段 11。
 若想解除，最轻的路径是 **WSL2 + 容器引擎**（不装 Docker Desktop），可一次性解锁 8 张卡。
@@ -38,7 +37,7 @@ T-403 可直接复用 `JavaDependencyExtractor.extractImports()`（判 Spring/My
 | 阶段 1B | 中间件接入 | ⏸️ 挂起（等 Docker） | 0 / 3 |
 | 阶段 2 | 项目多源导入 | ✅ **已完成**（T-205、T-206 挂起） | 4 / 6 |
 | 阶段 3 | 代码解析服务 | ✅ **已完成**（T-305 挂起） | 4 / 5 |
-| 阶段 4 | 架构逆向 | 🟡 进行中 | 2 / 4 |
+| 阶段 4 | 架构逆向 | 🟡 进行中 | 3 / 4 |
 | 阶段 5 | 缺陷与依赖审计 | ⬜ 未开始 | 0 / 5 |
 | 阶段 6 | 文档注释生成 | ⬜ 未开始 | 0 / 4 |
 | 阶段 7 | 修复建议 / Diff / HITL | ⬜ 未开始 | 0 / 4 |
@@ -51,15 +50,19 @@ T-403 可直接复用 `JavaDependencyExtractor.extractImports()`（判 Spring/My
 
 ## 2. 当前状态
 
-- **当前任务卡**：T-403（技术栈识别）
+- **当前任务卡**：T-404（模块循环依赖检测）——阶段 4 收尾卡
 - **已完成**：T-000 文档初始化、T-001 `git init`、T-002 工程骨架、T-004~T-007 四项冒烟、
   T-101/T-102/T-106（阶段 1A）、T-201~T-204（阶段 2 全部非挂起卡）、
   T-301 解析器封装、T-302 类型声明抽取、T-303 方法签名抽取、T-304 import 与跨文件调用关系、
-  T-401 包结构与分层识别、**T-402 Mermaid 架构图生成**
-- **构建基线**：`mvn clean verify` → 7 模块全绿，**335 个测试**，0 失败 0 跳过
-  （各模块：common 12 / gateway 1 / project-resource 210 / code-analysis 107 /
+  T-401 包结构与分层识别、T-402 Mermaid 架构图生成、**T-403 技术栈识别**
+- **构建基线**：`mvn clean verify` → 7 模块全绿，**349 个测试**，0 失败 0 跳过
+  （各模块：common 12 / gateway 1 / project-resource 210 / code-analysis 121 /
   agent-orchestration 4 / evaluation-export 1）
-  ⚠️ 无 Node 的机器上 `MermaidGenTest` 的 3 个官方解析器用例会显式跳过 → 332 通过 + 3 跳过
+  ⚠️ 无 Node 的机器上 `MermaidGenTest` 的 3 个官方解析器用例会显式跳过 → 346 通过 + 3 跳过
+- **T-403 验收证据**：14 个用例；Java + Vue + Python 三栈样例工程
+  **命中 21 项 / 未识别 3 项**，双向断言（多认少认都要红）。
+  ⚠️ **口径**：样例自建，不等于真实工程准确；且识别的是「**声明或引用**了这项技术」，
+  **不是**「这项技术在运行」
 - **T-402 验收证据**：11 个用例；**用 `mermaid@11.6.0` 官方解析器真校验**（不是字符串自查），
   且带负向用例断言校验器会拒绝坏图。⚠️ **口径**：只验到**解析**，验不到**渲染出 SVG**
   （jsdom 无布局引擎）。只能说「图能被官方解析器解析」，不能说「图能渲染」
@@ -135,6 +138,10 @@ T-403 可直接复用 `JavaDependencyExtractor.extractImports()`（判 Spring/My
 | 2026-09-16 | T-402 | 实测标签转义只有两条：`"` 破坏引号标签边界、`\` 是转义符会吞字符（`a/b\c` → `a/bc`，**静默内容丢失**）；其余字符含中文原样可用 | `MermaidGenerator`、`docs/tech-spike.md` F-17 |
 | 2026-09-16 | T-402 | 定界：**官方解析器能离线验、真实渲染不能**（`mermaid.render` 需 `getBBox`，jsdom 无布局引擎）。表述统一收敛为「能被解析」，禁止说「能渲染」 | `docs/tech-spike.md` F-17、`docs/tasks.md` |
 | 2026-09-16 | 文档更正 | **核对看板数字**：挂起卡实为 **14 张**（原写 16；表里逐条只有 10 行 + `T-1101~1104` 四张）；阶段 0 实为 **7/9**（T-002 按 `tasks.md` 属阶段 0，原被算进 1A）；STATUS 头部「最新提交」停在 T-304 未随卡更新 | `docs/STATUS.md`、`docs/progress.md` |
+| 2026-09-16 | T-403 | 技术栈目录（枚举 51 项、8 个分类）+ 识别结果模型（**证据是一等公民**）+ 报告（按分类分组、`unrecognized()` 显式暴露没认出的坐标） | `TechStack`、`TechStackItem`、`TechStackReport` |
+| 2026-09-16 | T-403 | 识别器：三路证据（import 前缀 / 注解名 / 依赖文件坐标）；pom 的 `${属性}` 版本回查 `<properties>`，回查不到留空 | `TechStackDetector` |
+| 2026-09-16 | T-403 | **修复 MyBatis 前缀写漏**：核心包是 `org.apache.ibatis` 不是 `org.mybatis`，只写后者会静默漏掉大半个真实项目 | `TechStackDetector`、`TechStackTest` |
+| 2026-09-16 | T-403 | 定策「不猜」：`@Mapper` 在 MyBatis 与 MapStruct 里同名，**不进注解规则表**，只认 import 与依赖坐标；`package.json` 只在 dependencies 块内取值，避免元数据键灌进未识别清单 | `TechStackDetector` |
 
 ## 5. 已知风险台账
 
@@ -160,3 +167,4 @@ T-403 可直接复用 `JavaDependencyExtractor.extractImports()`（判 Spring/My
 | R-18 | **调用图的解析是近似**：方法节点不带参数（同名重载合并为一）、变量类型表不区分作用域、`super.xxx()` 未解析、泛型与反射调用不可见 | 中 | 一律**宁缺勿假**：解析不到就不产边并记入 `unresolvedCallSites()` 备查；输出场景统一标注「辅助分析结果，需人工确认」 | 🟡 已定策 |
 | R-19 | **分层识别是启发式，不是语义分析**：命名自由的项目里必然有认不出的类；「准确率 100%」只是 T-401 自建样例集上的结果，**不可外推** | 中 | ①注解 / 包名 / 类型名三个信号全部保留，冲突可查（`LayerReport.conflicts()`）；②`model`/`pojo`/`common` 等歧义段不建映射，认不出就给 `UNKNOWN` 并由 `unclassified()` 显式列出；③对外表述统一为「辅助分析结果，需人工确认」，禁止说「自动保证准确」 | 🟡 已定策 |
 | R-20 | **Mermaid 只验到解析、验不到渲染**；且验证依赖 Node + `tools/mermaid-verify` 的 npm 依赖，未安装时用例**显式跳过**（不是静默通过，也不是失败） | 中 | ①表述统一为「图能被官方解析器解析」，**禁止说「图能渲染」**；②跳过时打印启用命令；③工作区已装好，本机实测通过；④真实渲染留到阶段 10 用真实浏览器验 | 🟡 已定策 |
+| R-21 | **技术栈识别是「声明级」不是「运行级」**：依赖引了不用、import 了没跑都会被识别出来；目录外的技术一律认不出 | 中 | ①表述统一为「工程里**声明或引用**了这项技术」，**禁止说「项目在用 X」**；②`unrecognized()` 把没认出的依赖坐标原样列出，不静默丢弃；③每条结果强制带证据，空证据有测试断言；④输出统一标注「辅助分析结果，需人工确认」 | 🟡 已定策 |
