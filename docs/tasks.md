@@ -328,11 +328,48 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 
 | 卡号 | 任务 | 验收 | 测试命令 |
 |---|---|---|---|
-| T-501 | 审计规则引擎 + 规则注册机制 | 空指针/未捕获异常/硬编码/死代码规则可插拔 | `mvn -q -pl code-analysis -Dtest=RuleEngineTest test` |
-| T-502 | `pom.xml` 依赖冲突检测（版本冲突/重复/无效） | 构造样例能检出冲突并给出路径 | `mvn -q -pl code-analysis -Dtest=PomConflictTest test` |
-| T-503 | `requirements.txt` 依赖解析与冲突检测 | 同上（Python 侧） | `mvn -q -pl code-analysis -Dtest=ReqConflictTest test` |
-| T-504 | 架构隐患规则（循环依赖/分层混乱/职责不单一） | 与 T-404 结果打通，输出统一问题模型 | `mvn -q -pl code-analysis -Dtest=ArchRiskTest test` |
-| T-505 | 风险分级（高/中/低）+ 问题模型入库 | 每条问题含文件、行号、描述、风险说明、触发场景 | `mvn -q -pl code-analysis -Dtest=AuditPipelineTest test` |
+| T-501 | ✅ | 审计规则引擎 + 规则注册机制 | 空指针/未捕获异常/硬编码/死代码规则可插拔 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=RuleEngineTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-502 | ⬜ | `pom.xml` 依赖冲突检测（版本冲突/重复/无效） | 构造样例能检出冲突并给出路径 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=PomConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-503 | ⬜ | `requirements.txt` 依赖解析与冲突检测 | 同上（Python 侧） | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ReqConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-504 | ⬜ | 架构隐患规则（循环依赖/分层混乱/职责不单一） | 与 T-404 结果打通，输出统一问题模型 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ArchRiskTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-505 | ⬜ | 风险分级（高/中/低）+ 问题模型入库 | 每条问题含文件、行号、描述、风险说明、触发场景 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=AuditPipelineTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+
+> **T-501 实现约定**（落在 `AuditIssue` / `AuditRule` / `AuditEngine` / `arch/rules/*`）：
+> 1. **统一问题模型只有一个**：代码缺陷、依赖冲突、架构隐患全部收敛成 `AuditIssue`
+>    （`acceptance.md` 明确要求「使用统一问题模型」）。统一到同一个 DTO 而不是
+>    「几个长得很像的 DTO」，前端渲染与入库才只需要一套。
+> 2. **六个字段是构造函数的硬约束**：文件路径、行号、问题描述、风险说明、触发场景、风险等级
+>    —— 缺一个就造不出对象，而不是等前端渲染时才发现是空的。把约束放进构造函数，
+>    是让编译器与单测替人记住它。
+> 3. **可插拔的机制就是 Spring**：实现 `AuditRule` + `@Component`，`AuditEngine` 通过
+>    `List<AuditRule>` 构造注入拿到全部实现，引擎自身不认识任何具体规则。
+>    加规则不改引擎、不改注册表——而不是「在 switch 里多加一个分支」。
+> 4. **`riskLevel()` 是基准等级，不是最终等级**：同一条规则内部可按命中形态给不同等级
+>    （硬编码密码高危、硬编码连接串中危）。这个方法的用途是让调用方<b>不执行规则</b>
+>    也知道它会不会产出高危问题。
+> 5. **引擎不吞规则异常**：规则抛异常就让它抛。静默跳过会让人以为「这条规则没发现问题」，
+>    而真相是「这条规则根本没跑完」——审计工具里这种混淆比崩溃危险得多。
+> 6. **引擎不做去重合并**：同一处代码被两条规则命中是两条问题，指向不同的风险。合并会丢依据。
+> 7. **输出按「文件 → 行号 → 规则 ID」排序**：结果要入库、要做两轮比对（「这次比上次好了没有」），
+>    顺序一漂移，所有比对都变成噪声。
+
+> **T-501 实测踩坑（两条都是「不报错、只是永远不命中」）**：
+> 1. **tree-sitter 的 `block` 子节点里包含 `{` 与 `}` 两个匿名 token**——`{}` 的
+>    `getChildCount()` 是 **2 不是 0**。判 `childCount == 0` 让「空 catch 块」规则
+>    **永远不命中且不报错**。必须显式排除花括号与注释。
+>    （与 T-303 踩到的 `formal_parameters` 混入括号是同一类陷阱，这是第二次。）
+> 2. **JDBC 连接串有子协议**：真实写法是 `jdbc:mysql://host:3306/db`，子协议夹在
+>    `jdbc` 与 `://` 之间。正则写成 `(jdbc|redis|...)://` 会让 `jdbc:*` 这一支
+>    **永远匹配不上**，连接串从不被检出。已改成 `jdbc(:[a-z0-9]+)?://`。
+
+> **T-501 验收证据**：12 个用例。样例同时埋四类缺陷，逐处断言被检出且落在正确行上。
+> **`acceptance.md` 的三条硬要求逐条对应**：①每条问题六个字段齐全；②风险等级只在三值内
+> （枚举保证 + 断言取值）；③**标注样例集上高危漏报率 0.0%**（2 处高危、0 漏报，测试里打印实测值）。
+> 另有可插拔验证（自定义规则无需改引擎即生效、引擎不认识任何具体规则）、
+> 不误报验证（被调用的私有方法、`@PostConstruct` 回调、常量字段都不算死代码）、
+> 无调用图时死代码规则安静退出。
+> **阶段 5 门禁实测**：`-Dtest='*Audit*,*Conflict*,*Rule*'` → 12 个测试全绿
+> （目前只有 `RuleEngineTest` 匹配，T-502~T-505 落地后会自动纳入）。
 
 ## 阶段 6：文档注释生成
 
