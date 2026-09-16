@@ -225,6 +225,10 @@ T-205/T-206（MinIO 归档 / RabbitMQ 异步）、T-305（Redis 缓存）。
 | 2026-09-16 | T-105 | **真实 MySQL 8.0.46 验证通过**：服务启动 → Flyway 自动建表 → 真实 INSERT 成功；S8 通过（**R-13 对 code-analysis 这一份闭环**） | `AuditPersistenceTest` |
 | 2026-09-16 | T-105 | **三个关键点**：① **Flyway 历史表按服务隔离**（共用库 + 各自的 `V1__` 会撞版本号）；② **`TRIGGER` 是 MySQL 保留字**，列名改 `trigger_snippet`；③ 接入数据源后测试必须打 `test` 档走 H2，**保持「无 Docker 也能全绿」** | `application-local.yml`、`application-test.yml`、`V1__audit_schema.sql` |
 | 2026-09-16 | T-105 | **修正 compose 凭据不一致**：compose 建的用户是 `codewisdom`，而应用配置读 `${CW_DB_USER:cw}` —— 对不上。已改用**同一组变量名与默认值**，一处配置两边生效 | `docker-compose.yml` |
+| 2026-09-16 | 部署 | **阿里云 ECS 47.93.158.48 首次上线**：5 个中间件 healthy + 5 个服务 active；**公网端到端跑通**（经网关真实导入 Gitee RuoYi → 886 节点 / 624 文件 / 分类统计正确） | `deploy/**`、`docs/deployment.md` |
+| 2026-09-16 | 部署 | **修复 RabbitMQ 3.13 配置类环境变量弃用**：`RABBITMQ_VM_MEMORY_HIGH_WATERMARK` 让容器 `exit 1` 崩溃重启，日志只说 deprecated，**极易误判成 OOM**；改用挂 `rabbitmq.conf` | `deploy/docker-compose.prod.yml`、`deploy/rabbitmq.conf` |
+| 2026-09-16 | 部署 | **修复 Nacos 内存上限过紧**：实测 752M/768M（98%），随时被 OOM-Kill；改 1g。「限额大于 Xmx」是不够的，堆外还有 Metaspace/线程栈/direct buffer | `deploy/docker-compose.prod.yml` |
+| 2026-09-16 | 部署 | **修复 Flyway 静默跳过迁移**（共享库 + baseline-on-migrate 的必然副作用）：第二个服务面对非空 schema 时被标记为基线版本 1，而它的脚本正是 V1 → **被当成已执行**。服务启动正常、Flyway 报成功，一调用才报表不存在。`baseline-version` 改 0 + systemd 环境变量兜底 | 两个 `application-local.yml`、`deploy/codewisdom@.service`、`docs/deployment.md` |
 | 2026-09-16 | T-003 | **修正健康检查的错误推理**：第一版用 root 探 MySQL 并注释「业务用户未初始化完成前会一直失败」——恰恰相反，用 root 会**提前变绿**（MySQL 初始化时先起临时实例）。改用业务账号探 | `docker-compose.yml` |
 | 2026-09-16 | T-505 | **阶段 5 收尾**：`acceptance.md` 阶段 5 六条验收标准**无一条涉及数据库**，已全部满足；门禁 57 个测试全绿 | `docs/tasks.md` |
 | 2026-09-16 | T-504 | **修复阶段 5 门禁漏卡**：原命令 `*Audit*,*Conflict*,*Rule*` 不匹配 `ArchRiskTest`，「架构隐患」这张卡不在自己的阶段门禁里。与阶段 4 的 `*Arch*` 空集同类，已补 `*Arch*` | `docs/acceptance.md` |

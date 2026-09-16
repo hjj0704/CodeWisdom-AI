@@ -110,7 +110,10 @@ services:
       - "127.0.0.1:8849:8080"
     volumes:
       - nacos-logs:/home/nacos/logs
-    mem_limit: 768m
+    # ⚠️ 第一版给 768m，实测**跑到 752.8MiB / 768MiB = 98%**，随时会被 OOM-Kill。
+    #    JVM 堆（XMX 512m）之外还有 Metaspace、线程栈、direct buffer 与 JVM 自身开销，
+    #    「mem_limit 只要大于 Xmx」是不够的。给 1g 留出余量。
+    mem_limit: 1g
     healthcheck:
       # 不能用网上流传的 /nacos/v1/console/health/readiness —— 该端点在 3.x 返回 410 Gone，
       # 会导致容器起来了却一直报 unhealthy。改用命名服务指标端点
@@ -150,15 +153,19 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${CW_RABBITMQ_USER:?必须在 .env 中设置}
       RABBITMQ_DEFAULT_PASS: ${CW_RABBITMQ_PASSWORD:?必须在 .env 中设置}
-      # 默认 0.4 在容器里会按 cgroup 限额算，配合 mem_limit 才是准的
-      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: "0.6"
       TZ: Asia/Shanghai
+      # ⚠️ **不要**用 RABBITMQ_VM_MEMORY_HIGH_WATERMARK 这类环境变量配内存水位。
+      #    RabbitMQ 3.13 起大量 RABBITMQ_* 配置类环境变量**已弃用且是致命错误**：
+      #    容器会直接 `exit 1` 崩溃重启，日志只说 "deprecated environment variables detected"，
+      #    不看日志会误以为是内存不够被 OOM。**改用挂配置文件**（见 volumes 与 rabbitmq.conf）。
     ports:
       - "127.0.0.1:5672:5672"
       - "127.0.0.1:15672:15672"
     volumes:
       - rabbitmq-data:/var/lib/rabbitmq
-    mem_limit: 384m
+      # 正经的配置方式：配置文件而不是环境变量
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    mem_limit: 512m
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 20s

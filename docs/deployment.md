@@ -1,6 +1,9 @@
 # 部署清单 —— 阿里云 ECS 上线 CodeWisdom AI
 
-> **目标机器**：47.93.158.48（华北 2 · 北京）· 2 核 8G 经济型 e · Alibaba Cloud Linux 3 · 40G ESSD
+> **目标机器**：47.93.158.48（华北 2 · 北京）· **4 核 8G 经济型 e**（`ecs.e-c1m2.xlarge`）· Alibaba Cloud Linux 3 · 40G ESSD
+>
+> 规格是从实例元数据服务读出来的实测值，不是按购买页推测的：
+> `curl http://100.100.100.200/latest/meta-data/instance/instance-type`
 > **本文用途**：照着从上往下做，每步都有**验证方法**。卡住时先看最后一节「排错」。
 >
 > ⚠️ **两条铁律，先看**：
@@ -174,8 +177,8 @@ sudo cp /opt/codewisdom/deploy/codewisdom@.service /etc/systemd/system/
 sudo systemctl daemon-reload
 ```
 
-**⚠️ 分批启动，不要一次起 6 个**：2 核机器上 6 个 Spring Boot 同时抢 CPU，
-启动时间会翻几倍，还可能因为健康检查超时而反复重启。
+**⚠️ 分批启动，不要一次起 6 个**：多个 Spring Boot 同时抢 CPU 会让启动时间翻几倍，
+还可能因为健康检查超时而反复重启。
 
 ```bash
 # 第一批：网关（它不依赖数据库）
@@ -193,9 +196,16 @@ done
 **验证**：
 ```bash
 systemctl list-units 'codewisdom@*' --no-pager     # 5 个都应是 active (running)
-curl -s http://127.0.0.1:8080/ping                  # 网关
 curl -s http://127.0.0.1:8081/ping                  # project-resource
+curl -s http://127.0.0.1:8082/ping                  # code-analysis
 ```
+
+> ⚠️ **网关没有 `/ping`**。它是**纯路由器**——源码里只有一个启动类，没有任何 controller。
+> 探它 `/ping` 会拿到 404，那是正常行为不是故障。网关的正确验证方式是**走路由**：
+> ```bash
+> curl -s http://127.0.0.1:8080/api/project-resource/ping   # → project-resource 的响应
+> curl -s http://127.0.0.1:8080/api/code-analysis/ping
+> ```
 
 **看日志**：
 ```bash
@@ -239,19 +249,25 @@ ssh -L 8849:127.0.0.1:8849 -L 9001:127.0.0.1:9001 -L 15672:127.0.0.1:15672 root@
 - MinIO 控制台 → `http://localhost:9001/`
 - RabbitMQ 管理台 → `http://localhost:15672/`
 
-**外网验证网关**：
+**外网验证网关**（走路由，不是 /ping）：
 ```bash
-curl -s http://47.93.158.48:8080/ping
-# 期望：{"code":0,"data":"codewisdom-gateway",...}
+curl -s http://47.93.158.48:8080/api/code-analysis/ping
+# 期望：{"code":0,"message":"成功","data":"codewisdom-code-analysis","traceId":"...",...}
 ```
 
 ---
 
 ## 第 8 步 · 省额度（重要）
 
-300 元额度按 `0.367 元/小时` 算 = **817 小时**，而连续跑满 3 个月需要 2160 小时（793 元，会超支）。
+⚠️ **先确认你这台的单价与免费时长**。实例规格从元数据服务读（见文首），但**单价要到
+控制台的「费用账单 / 试用额度」页面看**——不同规格族、不同规格大小差很多，
+不能按「8G」就套用别的档位的价格。
 
-**推荐节奏：每天开 9 小时 × 90 天 = 810 小时 ≈ 297 元，正好用完额度。**
+算法是：`免费时长 = 300 ÷ 单价（元/小时）`，而 **3 个月连续跑 = 2160 小时**。
+按经验，任何 8G 机型都跑不满 2160 小时，所以**按需开关机是必选项**：
+
+**推荐节奏：每天开约 9 小时 × 90 天 ≈ 810 小时。**（按 0.367 元/小时算正好 297 元；
+若你的单价更高，把每天的小时数等比降下来即可。）
 
 关机与开机：
 ```bash
@@ -303,3 +319,53 @@ sudo systemctl restart codewisdom@code-analysis
 | 上下文启动失败、提示找不到数据源 | 打了错的 profile | 服务默认 profile 是 `local`，已指向 localhost:3306，确认中间件先起来了 |
 | 机器卡死 / OOM | 没分批启动，或漏了 `mem_limit` | 分批启动；确认用的是 `docker-compose.prod.yml` |
 | `mvn clean` 删不掉 jar | jar 正被 java 进程持有 | 先停服务再传 |
+| **服务启动正常，但一调用就报 `Table 'xxx' doesn't exist`** | **Flyway `baseline-on-migrate` 跳过了迁移**（见下方专项） | 见下方「共享库 + Flyway」 |
+| rabbitmq 容器反复重启，日志 `deprecated environment variables detected` | 用了 `RABBITMQ_*` 配置类环境变量，3.13 起**已弃用且致命** | 改用挂 `rabbitmq.conf`；**别误判成内存不足** |
+| nacos 容器偶发被 OOM-Kill | `mem_limit` 太贴近实测值 | 实测 752M/768M 时给 1g。**「限额大于 Xmx」是不够的**，堆外还有 Metaspace/线程栈/direct buffer |
+| 探网关 `/ping` 返回 404 | 网关是**纯路由器**，没有 controller | 走路由探：`/api/<服务名>/ping` |
+
+---
+
+## 专项：共享库 + Flyway 的两个坑（**新增服务必读**）
+
+多个服务共用同一个库 `codewisdom`，各自都有 `V1__` 开头的迁移脚本。这会引出两个
+**只在第二个及以后启动的服务上出现**的问题——本机单服务测试永远发现不了。
+
+### 坑一：历史表必须按服务隔离
+
+Flyway 的版本号只在**单个历史表内**唯一。共用默认的 `flyway_schema_history`，
+第二个服务启动时会报「版本重复 / 校验和不匹配」。
+
+```yaml
+spring:
+  flyway:
+    table: flyway_schema_history_<服务名下划线形式>
+```
+
+### 坑二：`baseline-version` 必须为 0（**默认值 1 会静默跳过你的迁移**）
+
+第二个服务启动时，库里已经有别的服务建的表（**非空 schema**），而它自己没有历史表。
+此时 `baseline-on-migrate: true` 会判定「这是接管一个已有库」，于是：
+
+```
+Successfully baselined schema with version: 1      ← 把当前状态标记为「已到版本 1」
+```
+
+而它的迁移脚本正好是 `V1__` —— **`V1 <= 基线 1`，被当成已执行，直接跳过**。
+现象极具迷惑性：服务**启动完全正常**，日志里 Flyway 也报成功，但一调用就
+`Table 'xxx' doesn't exist`。
+
+```yaml
+spring:
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 0        # ← 关键。默认 1，必须改成 0 才会执行 V1
+```
+
+`CREATE TABLE IF NOT EXISTS` 保证幂等，所以基线调低不会重复建表。
+
+> 已经踩了的补救：删掉那张写错基线的历史表，重启服务即可重跑。
+> 先确认它里面只有 `<< Flyway Baseline >>` 一条记录再删。
+>
+> systemd 单元里也用 `Environment=SPRING_FLYWAY_BASELINE_VERSION=0` 兜了一道底——
+> 即使 jar 里的配置漏了，迁移也会执行。

@@ -27,9 +27,22 @@ Requires=docker.service
 
 [Service]
 Type=simple
+# 不用 root 跑。这个进程会解析不可信的项目源码，权限越小越好。
+# 需要在服务器上先建好用户并改好属主（见 docs/deployment.md 第 1 步）。
+User=codewisdom
+Group=codewisdom
 WorkingDirectory=/opt/codewisdom
-# .env 与 docker-compose.prod.yml 用同一份：数据库账号密码只维护一处
+# 与 docker-compose.prod.yml 用同一份 .env：数据库账号密码只维护一处。
+# 安装时用软链接指过去：ln -s /opt/codewisdom/deploy/.env /opt/codewisdom/.env
 EnvironmentFile=/opt/codewisdom/.env
+
+# ⚠️ **Flyway 基线版本必须为 0**（默认是 1）。
+# 多个服务共用同一个库：第二个启动的服务面对的是**非空 schema** 且自己没有历史表，
+# 此时 baseline-on-migrate 会「接管现有库」，把当前状态标记为基线版本
+# 并**跳过 <= 基线版本的迁移**。默认基线 1 == 我们的 V1，于是 V1 被静默跳过，
+# 建表脚本根本没执行 —— 现象是服务起得来、但一调用就报 `Table 'xxx' doesn't exist`。
+# 这里用环境变量兜底：即使 jar 里的配置漏了，也能保证迁移会执行。
+Environment=SPRING_FLYWAY_BASELINE_VERSION=0
 
 # 内存按实测给的：单服务空闲约 220M。Xmx 给 256M 是留了余量，
 # 限得比实测还低会让 JVM 频繁 Full GC 甚至 OOM。

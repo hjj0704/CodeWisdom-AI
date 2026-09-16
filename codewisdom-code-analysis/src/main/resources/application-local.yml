@@ -16,6 +16,13 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    # ⚠️ **必须为 0**，不能用默认值 1。
+    # 多个服务共用同一个库：第二个启动的服务面对的是**非空 schema** 且自己没有历史表，
+    # 此时 baseline-on-migrate 会「接管现有库」——把当前状态标记为基线版本
+    # 并**跳过 <= 基线版本的迁移**。默认基线是 1，于是 V1__ 被静默跳过，
+    # 建表脚本根本没执行（现象是运行时报 `Table 'xxx' doesn't exist`）。
+    # 降到 0 后 V1 > 0，迁移会正常执行。CREATE TABLE IF NOT EXISTS 保证幂等。
+    baseline-version: 0
     # ⚠️ **必须**给每个服务指定独立的历史表。
     # 多个服务共用同一个库 `codewisdom`，各自都有 V1__ 开头的脚本；
     # Flyway 的版本号只在**单个历史表内**唯一，共用默认的 flyway_schema_history
