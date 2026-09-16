@@ -1,0 +1,14 @@
+{
+  "name": "codewisdom-mermaid-verify",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "用 Mermaid 官方解析器校验生成的架构图语法。仅测试工具，不参与 Java 构建，不影响 mvn 产出。",
+  "scripts": {
+    "verify": "node verify.mjs"
+  },
+  "dependencies": {
+    "jsdom": "29.1.1",
+    "mermaid": "11.6.0"
+  }
+}

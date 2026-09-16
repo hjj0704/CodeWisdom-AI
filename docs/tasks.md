@@ -220,7 +220,7 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 | 卡号 | 任务 | 验收 | 测试命令 |
 |---|---|---|---|
 | T-401 | ✅ | 包结构/分层识别（controller/service/mapper/...） | 分层归类正确率在样例集上达标 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=LayerDetectTest -Dsurefire.failIfNoSpecifiedTests=false test` |
-| T-402 | ⬜ | Mermaid 架构图生成（模块图/依赖拓扑图） | 输出可被 Mermaid 解析，前端可渲染 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=MermaidGenTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-402 | ✅ | Mermaid 架构图生成（模块图/依赖拓扑图） | 输出可被 Mermaid 解析，前端可渲染 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=MermaidGenTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-403 | ⬜ | 技术栈识别（Spring/MyBatis/Vue/...） | 对样例工程识别结果与标注一致 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=TechStackTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-404 | ⬜ | 模块循环依赖检测 | 对构造的循环依赖样例能检出并给出环路径 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=CycleDetectTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 
@@ -247,6 +247,27 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 > 只能说明规则内部自洽，不能外推成「真实工程识别准确」**；真实工程准确率需独立标注的工程另测。
 > 另有 15 个用例覆盖优先级、冲突判定、混合包检测、嵌套类型取所在文件的包、输出顺序稳定性，
 > 以及与 T-302 解析链路打通的端到端用例。
+
+> **T-402 实现约定**（落在 `MermaidGenerator` + `tools/mermaid-verify/`）：
+> 1. **两张图都从现成产物推导**：节点取自 `LayerReport`，边取自 `CallGraph.typeEdges()`（已去自环）。
+> 2. **同层调用不画**：分层图上的 `SERVICE → SERVICE` 一律丢掉——两个 service 互相调用画成自环毫无信息量。
+>    **包拓扑图同理**，同包内的调用不画。但要小心：`service` 与 `service.impl` 是**同层不同包**，
+>    分层图上要滤掉、包图上必须保留，这两条相反的断言都要有。
+> 3. **节点 id 与显示名分开**：id 只用 `[A-Za-z0-9_]`，中文与包路径只出现在引号标签里。
+>    归一化会让 `com.a.b` 与 `com_a_b` 撞 id → 按出现顺序加数字后缀去重，否则两个包会被画成一个节点。
+> 4. **转义只有两条，但是实测出来的**：`"` → `#quot;`（会破坏引号标签边界）、`\` → `/`
+>    （标签里的转义符，实测 `a/b\c` 渲染成 `a/bc`，属**静默内容丢失**）。其余字符包括中文原样可用。
+> 5. **图里带免责声明**：`%% CodeWisdom 架构图：基于静态分析的辅助结果，需人工确认`——
+>    图会被贴进文档脱离上下文，声明写在图里比写在接口文档里可靠。
+
+> **T-402 验收证据**：11 个用例。
+> ① 快照逐字符锁定两张图的输出；② 同层边滤掉 / 跨包边保留的**相反断言**成对存在；
+> ③ 节点 id 撞车去重、引号与反斜杠转义各有用例。
+> **④ 关键：真拿 Mermaid 官方解析器验，不是字符串自查**——`tools/mermaid-verify/verify.mjs`
+> 里跑的是 `mermaid@11.6.0` 自己的 jison 语法（与前端渲染同一份解析器），
+> 且**专有一条负向用例**断言校验器会拒绝坏图；没有它，「校验通过」可能只是校验器永远返回通过。
+> ⚠️ **口径**：本机只能验到**解析**，验不到**渲染出 SVG**（jsdom 无布局引擎，`getBBox` 不存在）。
+> 所以只能说「图能被官方解析器解析」，**不能说「图能渲染」**，详见 `tech-spike.md` F-17。
 
 ## 阶段 5：缺陷与依赖审计
 

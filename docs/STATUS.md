@@ -12,20 +12,23 @@
 
 ## 一、一句话状态
 
-**阶段 0 / 1A / 2 / 3 已完成（阶段 3 的 T-305 因 Redis 挂起）；阶段 4 完成 1/4。**
-`mvn clean verify` → **7 模块全绿，324 个测试，0 失败 0 跳过**。
+**阶段 0 / 1A / 2 / 3 已完成（阶段 3 的 T-305 因 Redis 挂起）；阶段 4 完成 2/4。**
+`mvn clean verify` → **7 模块全绿，335 个测试，0 失败 0 跳过**。
 
 | 快速数字 | 值 |
 |---|---|
-| 完成任务卡 | **19 / 62**（另有 16 张因缺 Docker 挂起） |
-| 测试 | **324 个，0 失败 0 跳过**（common 12 / gateway 1 / project-resource 210 / code-analysis 96 / agent-orchestration 4 / evaluation-export 1） |
-| 主代码 | 61 个 Java 文件 / 5689 行 |
-| 测试代码 | 30 个 Java 文件 / 5528 行（测试比主代码还多） |
-| 提交 | 12 个，全部已推送 |
-| 文档 | 8 份（`CLAUDE.md` + `docs/*.md`） |
+| 完成任务卡 | **20 / 62**（另有 16 张因缺 Docker 挂起） |
+| 测试 | **335 个，0 失败 0 跳过**（common 12 / gateway 1 / project-resource 210 / code-analysis 107 / agent-orchestration 4 / evaluation-export 1） |
+| 主代码 | 62 个 Java 文件 / 5890 行 |
+| 测试代码 | 31 个 Java 文件 / 5873 行（测试比主代码还多） |
+| 提交 | 13 个，全部已推送 |
+| 文档 | 8 份（`CLAUDE.md` + `docs/*.md`）+ 1 个测试工具（`tools/mermaid-verify/`） |
 
 > ⚠️ **基线数字更正**：此前文档记的基线是 283，长期实测为 **284**（少算 1 个）。
-> T-304 新增 24 个 → 308；T-401 新增 16 个 → **324**。
+> T-304 +24 → 308；T-401 +16 → 324；T-402 +11 → **335**。
+>
+> ⚠️ **无 Node 的机器**：`MermaidGenTest` 的 3 个官方解析器用例会**显式跳过**并打印启用命令，
+> 此时是 **332 通过 + 3 跳过**，不是失败。启用：`cd tools/mermaid-verify && npm install`。
 
 ---
 
@@ -38,7 +41,7 @@
 | 1B | 中间件接入 | ⏸️ 挂起 | 0 / 3 |
 | 2 | 项目多源导入 | ✅ 完成 | 4 / 6（2 张挂起） |
 | 3 | 代码解析服务 | ✅ 完成（T-305 挂起） | 4 / 5 |
-| 4 | 架构逆向 | 🟡 **进行中** | 1 / 4 |
+| 4 | 架构逆向 | 🟡 **进行中** | 2 / 4 |
 | 5 | 缺陷与依赖审计 | ⬜ 未开始 | 0 / 5 |
 | 6 | 文档注释生成 | ⬜ 未开始 | 0 / 4 |
 | 7 | 修复建议 / Diff / HITL | ⬜ 未开始 | 0 / 4 |
@@ -53,7 +56,7 @@
 
 ## 三、任务卡逐条清单
 
-### ✅ 已完成（19 张）
+### ✅ 已完成（20 张）
 
 | 卡号 | 任务 | 关键证据 |
 |---|---|---|
@@ -76,6 +79,7 @@
 | T-303 | 方法签名抽取 | 构造器 / 泛型 / 可变参数 / 抽象方法 / throws / 参数注解 |
 | T-304 | **import 与跨文件调用图** | 7 文件样例工程断言 12 条内部边 + 2 条外部边；递归 / `this(...)` / 同类互调三类自环噪音分两级滤掉；歧义按需导入判未解析；继承方法挂到真正声明的父类型 |
 | T-401 | **包结构与分层识别** | 自建样例集 32 个类型 **100%（32/32）**；四信号分离（路径/注解/包名/类型名），冲突可查；`model` 等歧义段不猜，认不出显式列 UNKNOWN |
+| T-402 | **Mermaid 架构图生成** | 分层图 + 包拓扑图；**用 `mermaid@11.6.0` 官方解析器真校验**（含断言「坏图必须被拒」的负向用例）。⚠️ 只验到解析，**未验渲染** |
 
 ### ⏸️ 挂起 —— 全部因为**本机没有 Docker**（16 张）
 
@@ -103,8 +107,8 @@
 
 | 卡号 | 任务 | 所属阶段 |
 |---|---|---|
-| **T-402** | **Mermaid 架构图生成（模块图/依赖拓扑图）** ← **下一张** | 阶段 4 |
-| T-403~T-404 | 技术栈识别 / 循环依赖检测 | 阶段 4 |
+| **T-403** | **技术栈识别（Spring/MyBatis/Vue/...）** ← **下一张** | 阶段 4 |
+| T-404 | 循环依赖检测（可直接吃 `CallGraph.typeEdges()`） | 阶段 4 |
 | T-501~T-505 | 审计规则引擎 / 依赖冲突 / 架构隐患 / 风险分级 | 阶段 5 |
 | T-601~T-604 | LLM 抽象层 / 注释生成 / README / 文档产物 | 阶段 6 |
 | T-701~T-704 | 修复建议 / Diff / HITL 状态机 / 全图串联 | 阶段 7 |
@@ -116,21 +120,21 @@
 ## 四、明天怎么开始
 
 ```bash
-# 1. 跑基线，确认起点正确（预期：7 模块 SUCCESS，324 测试，0 失败 0 跳过）
+# 1. 跑基线，确认起点正确（预期：7 模块 SUCCESS，335 测试，0 失败 0 跳过）
+#    没有 Node 的机器上是 332 通过 + 3 跳过（MermaidGenTest 的官方解析器用例显式跳过）
 cd D:/CodeWisdom
 mvn clean verify
 
 # 2. 下一张卡
-#    T-402 —— Mermaid 架构图生成（模块图/依赖拓扑图）
+#    T-403 —— 技术栈识别（Spring/MyBatis/Vue/...）
 #    涉及模块：codewisdom-code-analysis
-#    现成输入：LayerReport.layersByPackage() / mixedPackages()（T-401 的分层与包结构）
-#             CallGraph.typeEdges()（T-304 的类型级调用边，已去自环）
-#    验收：输出可被 Mermaid 解析，前端可渲染（注意 acceptance.md 要求「能被官方解析器成功渲染」，
-#          不是只生成字符串 —— 需要设法在离线环境下真正校验语法）
-#    测试：mvn -q -pl codewisdom-code-analysis -am -Dtest=MermaidGenTest -Dsurefire.failIfNoSpecifiedTests=false test
+#    现成输入：JavaDependencyExtractor.extractImports()（判 Spring/MyBatis 关键字）
+#             LayerReport（分层证据）、FileTreeStats 的文件清单（pom.xml / requirements.txt / package.json）
+#    验收：对样例工程识别结果与标注一致
+#    测试：mvn -q -pl codewisdom-code-analysis -am -Dtest=TechStackTest -Dsurefire.failIfNoSpecifiedTests=false test
 ```
 
-然后对我说：**「先读 CLAUDE.md、docs/progress.md、docs/tasks.md。当前任务：T-402」** 即可。
+然后对我说：**「先读 CLAUDE.md、docs/progress.md、docs/tasks.md。当前任务：T-403」** 即可。
 
 ---
 
@@ -145,6 +149,8 @@ mvn clean verify
 | **Nacos / Sentinel / MinIO / RabbitMQ / Redis** | 🟡 **一次都没跑过**，只有依赖解析验证过。 |
 | **LangHarness** | ✅ 已确认**不存在 Java SDK**，走自研评测模块 —— 这条是结论，不是"待验证"。 |
 | **Spring AI** | 🟡 `spring-ai-bom 2.0.1` 是否要求 Boot 4.x **未验证**；引入前必须先验。 |
+| **Mermaid 图** | 🟢/🟡 **拆开说**：图能被 Mermaid **官方解析器解析**已实测（`mermaid@11.6.0`，与前端同一份语法，接入测试并有负向用例）；但**渲染出 SVG 本机验不了**（jsdom 无布局引擎，`mermaid.render` 报 `getBBox is not a function`）。**只能说「能被解析」，不能说「能渲染」**，渲染留到阶段 10 用真实浏览器验。 |
+| **分层识别准确率** | 🟡 **100% 只在 T-401 自建样例集（32 个类型）上成立**，样例是自己标的，**不能外推成「真实工程识别准确」**。真实工程准确率需独立标注的工程另测。 |
 
 **表述纪律**：所有 AI 分析结论一律说「辅助分析结果，需人工确认」，禁止说「完全自动保证准确」。
 
@@ -193,3 +199,4 @@ mvn clean verify
 | `docs/acceptance.md` | 各阶段验收标准 |
 | `docs/spec.md` | 规范版需求 |
 | `docs/summaries/` | 依赖树等证据归档 |
+| `tools/mermaid-verify/` | Mermaid 官方解析器校验器（T-402 起）。**不参与 Java 构建**，`mvn` 产出与它无关；新机器要跑该用例先 `cd tools/mermaid-verify && npm install` |
