@@ -10,12 +10,38 @@
 | T-000 | ✅ | 文档初始化（CLAUDE.md + docs/*） | 7 份文档存在且内容完整 | `ls docs` |
 | T-001 | ✅ | 环境补齐：`git init` + `.gitignore`。~~安装 Docker Desktop~~ **（用户决定跳过，2026-09-15）** | `git status` 可执行 | `git status` |
 | T-002 | ✅ | 父 pom + common + 5 个空服务骨架，**不接入任何中间件** | 7 个 module 全部编译成功 | `mvn clean verify` |
-| T-003 | ⏸️ 🐳 | **挂起** docker-compose：Nacos/MySQL/Redis/MinIO/RabbitMQ | 5 个容器 healthy | `docker compose up -d && docker compose ps` |
+| T-003 | 🟡 | docker-compose：Nacos/MySQL/Redis/MinIO/RabbitMQ | 5 个容器 healthy（**4/5 已 healthy**，mysql 待用户停掉本机服务） | `docker compose up -d && docker compose ps` |
 | T-004 | ✅ | **S1 冒烟**：全套技术栈依赖共存 | 零 `omitted for conflict` | 见下方「S1 验证方法」 |
 | T-005 | ✅ | **S2 冒烟**：Tree-Sitter 解析 Java ⭐关键路径 | 取到 `class_declaration`/`method_declaration` 节点名+行号，且 ABI 兼容 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=TreeSitterSmokeTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-006 | ✅ | **S3 冒烟**：LangGraph4j 条件分支 + 循环边 ⭐关键路径 | 图执行完，驳回循环生效，Mermaid 可生成 | `mvn -q -pl codewisdom-agent-orchestration -am -Dtest=LangGraphSmokeTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-007 | ✅ | **S4 冒烟**：JGit 拉取公开仓库 | 克隆成功且能遍历文件树 | `mvn -q -pl codewisdom-project-resource -am -Dtest=JGitSmokeTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-008 | ⏸️ 🐳 | **挂起** **S5 冒烟**：MinIO 建桶/传/下/删 | 四步全通 | `mvn -q -pl codewisdom-project-resource -Dtest=MinioSmokeTest test` |
+
+> **T-003 进度（2026-09-16，Docker 已安装）**：`docker-compose.yml` 已写好并通过 `docker compose config` 校验；
+> **minio / nacos / rabbitmq / redis 四个容器 healthy ✓**，mysql 因**本机 MySQL 8.1 服务占用 3306** 起不来，
+> 待用户以管理员身份 `net stop mysql` 后补验（用户已选「停本机、用容器」）。
+>
+> **T-003 实测踩到的四个坑**（都写进了 `docker-compose.yml` 的注释，都有实测证据）：
+> 1. **Nacos 3.x 强制要求鉴权令牌**：不配 `NACOS_AUTH_TOKEN`（Base64、解码后 ≥32 字符）时容器
+>    `exit 255` 崩溃重启，日志只说 `env NACOS_AUTH_TOKEN must be set with Base64 String.`。
+>    只给 `MODE: standalone` 不够——这是 Nacos 3.x 相对 2.x 的行为变化。
+> 2. **Nacos 3.x 的就绪探针地址变了**：网上常见的 `/nacos/v1/console/health/readiness`
+>    实测返回 **410 Gone**，导致**容器明明起来了、健康检查却一直 unhealthy**，
+>    很容易被误判成「Nacos 起不来」。改用命名服务的 `/nacos/v1/ns/operator/metrics`（实测 200）
+>    ——应用做服务发现靠的就是命名服务，它通才说明对客户端可用。
+> 3. **Nacos 3.x 控制台是独立 Web 应用（容器内 8080）**，**不能映射成宿主 8080**——
+>    那是本项目网关的端口，已映到 8849。
+> 4. **Docker 会继承 Windows 系统代理**：系统代理开着（`127.0.0.1:7890`）但代理软件没跑时，
+>    所有 registry 请求打到死端口，报错形态是 `connectex: ... actively refused`，
+>    看起来像镜像站挂了。已把 Docker Desktop 设为直连。
+
+> **本机 Docker 环境已做的改动**（都不在仓库里，均已备份可还原）：
+> - `~/.docker/daemon.json` 加镜像加速器（`docker.m.daocloud.io` + `docker.1ms.run`），
+>   备份 `~/.docker/daemon.json.bak-*`。**Docker Hub 直连本机不可达**，必须走加速器。
+> - Docker Desktop 代理设为「手动 + 空」= 直连，备份 `settings-store.json.bak-*`。
+>
+> ⚠️ **`docker manifest inspect` 不走镜像加速器**（它直连 Docker Hub），
+> 用它验证 tag 会看到「全部不存在」的假象。**验证 tag 只能靠真实 `docker pull`。**
 
 > 🐳 = 依赖 Docker/中间件，本次已延后。
 > **S1~S4 全部通过，阶段 3 与阶段 4+ 的关键路径已解锁。**

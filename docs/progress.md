@@ -29,8 +29,15 @@ requirements 冲突 / 架构隐患）统一产出 `AuditIssue`，汇总管线 `A
 code-analysis 没有持久化层，半接数据源会让 T-105 统一接入时返工。
 **在 T-105 完成前，不能说「审计结果已入库」。**
 
-**仍挂起（等 Docker）**：T-003、T-008、T-103~T-105、T-205、T-206、T-305、阶段 8 部分、阶段 11。
-若想解除，最轻的路径是 **WSL2 + 容器引擎**（不装 Docker Desktop），可一次性解锁 8 张卡。
+**Docker 已就绪（2026-09-16）**：Docker Desktop 29.8.0 + Compose v5.5.1 实测可用，
+**此前挂起的 14 张卡全部解锁**。当前正在补 T-003：
+`docker-compose.yml` 已写好，**minio / nacos / rabbitmq / redis 四个容器 healthy**，
+mysql 待用户以管理员身份 `net stop mysql`（本机 MySQL 8.1 占着 3306）。
+
+⚠️ **本机 Docker 的两个环境前提**（不在仓库里，已备份）：
+① Docker Hub **直连不可达**，必须走镜像加速器（已配在 `~/.docker/daemon.json`）；
+② Docker 会继承 Windows 系统代理，而系统代理指向未运行的 `127.0.0.1:7890`，
+已把 Docker Desktop 改成直连。详见 `docs/tasks.md` T-003 小节。
 
 ---
 
@@ -38,7 +45,7 @@ code-analysis 没有持久化层，半接数据源会让 T-105 统一接入时�
 
 | 阶段 | 名称 | 状态 | 完成卡 / 总卡 |
 |---|---|---|---|
-| 阶段 0 | 技术验证与文档初始化 | ✅ **已完成** | 7 / 9（T-003、T-008 挂起） |
+| 阶段 0 | 技术验证与文档初始化 | 🟡 进行中（Docker 已就绪，回来补卡） | 7 / 9（T-003 4/5、T-008 待做） |
 | 阶段 1A | 工程骨架（零中间件） | ✅ **已完成** | 3 / 3 |
 | 阶段 1B | 中间件接入 | ⏸️ 挂起（等 Docker） | 0 / 3 |
 | 阶段 2 | 项目多源导入 | ✅ **已完成**（T-205、T-206 挂起） | 4 / 6 |
@@ -135,9 +142,10 @@ code-analysis 没有持久化层，半接数据源会让 T-105 统一接入时�
 | S4 | JGit 拉取公开仓库 | ✅ **通过** | 克隆 Gitee RuoYi：706 文件 / branch=master / head=7995a83e |
 | S5 | MinIO 连通 | ⏸️ 挂起 | 等 Docker |
 | S6 | Nacos 注册发现 | ⏸️ 挂起 | 等 Docker |
-| S7 | docker compose 起中间件 | ⏸️ 挂起 | 用户决定暂不安装 Docker Desktop |
+| S7 | docker compose 起中间件 | 🟡 进行中 | Docker 已装（29.8.0）；**4/5 容器 healthy**（minio/nacos/rabbitmq/redis），mysql 待停本机服务 |
 
 > **阶段 3 与阶段 4+ 的关键路径阻塞项（S2、S3）已全部解除。**
+> **S7 于 2026-09-16 解冻**（Docker 就绪），正在补 T-003。
 
 ## 4. 变更日志
 
@@ -202,6 +210,8 @@ code-analysis 没有持久化层，半接数据源会让 T-105 统一接入时�
 | 2026-09-16 | T-505 | 审计报告模型 `AuditReport`：**恒定三档分级**（「高危 0」必须可区分于「没统计高危」）、空报告不给自己安等级、按规则/文件聚合、稳定排序 | `AuditReport` |
 | 2026-09-16 | T-505 | 汇总管线 `AuditPipeline`：四路产出只做「去重 → 分级 → 排序」，**不重新实现各分析器已做过的校验与排序**；去重键刻意不含等级，等级冲突时**取高不取低** | `AuditPipeline`、`AuditPipelineTest` |
 | 2026-09-16 | T-505 | **决策：入库移入 T-105**。code-analysis 无持久化层（无 MyBatis-Plus / H2 / Flyway、无数据源、无 entity/mapper），而「各服务接入 MySQL」正是 T-105 的职责；半接数据源会让 T-105 统一接入时返工 | `docs/tasks.md`、`docs/STATUS.md`、`docs/progress.md` |
+| 2026-09-16 | T-003 | **Docker 就绪**：Docker Desktop 29.8.0 + Compose v5.5.1 实测可用；配镜像加速器（Docker Hub 直连不通）、改 Docker 为直连（系统代理指向未运行的 7890）；`docker-compose.yml` 写好并通过 config 校验 | `docker-compose.yml`、`~/.docker/daemon.json` |
+| 2026-09-16 | T-003 | **4/5 容器 healthy**（minio/nacos/rabbitmq/redis）；踩到 Nacos 3.x 三个坑：强制鉴权令牌、就绪探针 v1 端点返回 410、控制台移到容器内 8080（避开网关的 8080） | `docker-compose.yml` |
 | 2026-09-16 | T-505 | **阶段 5 收尾**：`acceptance.md` 阶段 5 六条验收标准**无一条涉及数据库**，已全部满足；门禁 57 个测试全绿 | `docs/tasks.md` |
 | 2026-09-16 | T-504 | **修复阶段 5 门禁漏卡**：原命令 `*Audit*,*Conflict*,*Rule*` 不匹配 `ArchRiskTest`，「架构隐患」这张卡不在自己的阶段门禁里。与阶段 4 的 `*Arch*` 空集同类，已补 `*Arch*` | `docs/acceptance.md` |
 | 2026-09-16 | T-503 | **重构 `TechStackDetector` 复用 requirements 读取器**（与 T-502 的 pom 侧同理），T-403 的 14 个用例保持绿 | `TechStackDetector` |
@@ -216,7 +226,7 @@ code-analysis 没有持久化层，半接数据源会让 T-105 统一接入时�
 | R-01 | Tree-Sitter core ↔ grammar ABI 不兼容 | 高 | **S2 已证伪**：ABI 14 ∈ [13,15]，解析正确 | ✅ 已解除 |
 | R-02 | LangGraph4j 与 Boot 3.5.x 依赖冲突 | 中 | **S3 已证伪**：依赖树零冲突，图正常执行 | ✅ 已解除 |
 | R-03 | SCA 2025.0.0.0 兼容性缺官方声明 | 中 | **S1 已验证依赖共存**；运行时（Nacos 注册）待 S6 | 🟡 部分解除 |
-| R-04 | 无 Docker，所有中间件链路无法验证 | 中 | 用户已接受暂缓；阶段 1B/11 挂起 | 已接受 |
+| R-04 | ~~无 Docker，所有中间件链路无法验证~~ | ~~中~~ | **已解除**：2026-09-16 Docker Desktop 29.8.0 安装并实测可用；14 张挂起卡解锁，正在补 T-003。**但注意**：Docker Hub 本机直连不可达，必须走镜像加速器（已配）；且本机 MySQL 占用 3306 需先停 | ✅ 已解除 |
 | R-05 | 评测体系无现成 Java 框架，需自研 | 中 | 已定为自研轻量模块 | 已定策 |
 | R-06 | 业务规则逆向准确率不可控 | 中 | 定位为辅助功能，输出必带「需人工确认」 | 已定策 |
 | R-07 | 阶段 1 因缺中间件无法正式收尾 | 中 | 以「1A 完成」作为阶段 2 启动条件 | ✅ 已按此执行 |

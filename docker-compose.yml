@@ -1,0 +1,166 @@
+# =====================================================================
+# CodeWisdom AI —— 本地中间件一键起（T-003）
+#
+# 目标：`docker compose up -d` 之后，5 个容器全部到达 healthy。
+# 这 5 个中间件是阶段 1B / 2 / 3 / 8 的挂起卡（共 14 张）的前置条件。
+#
+# 版本选择依据（均为实测确认可拉取，不是查文档抄的）：
+#   MySQL 8.0        architecture.md §「技术选型」约定 8.0
+#   Redis 7.x        architecture.md 约定 7.x
+#   Nacos v3.0.3     与声明的 nacos-client 3.0.3 同一个小版本
+#   MinIO RELEASE.*  MinIO 没有语义化版本，只有 RELEASE 日期标签；
+#                    刻意**不用 `latest`**——它会随时间漂移，今天的 `latest`
+#                    与明天的不是同一个东西，构建无法复现
+#   RabbitMQ 3.13   3.x 的最后一个 LTS management 标签
+#
+# 端口与库名来自 architecture.md 与各服务的 application-local.yml：
+#   MySQL  3306 / 库 codewisdom
+#   Redis  6379
+#   Nacos  8848（HTTP）+ 9848（gRPC，客户端 3.x 必需）
+#   MinIO  9000（S3 API）+ 9001（控制台）
+#   RabbitMQ 5672（AMQP）+ 15672（管理台）
+#
+# ⚠️ 这里只起中间件，**不建桶、不建表、不投递消息**：
+#   建桶属 T-008/T-205，建表属 T-105（Flyway），队列声明属 T-206。
+#   T-003 的验收就是「5 个容器 healthy」，把初始化混进来会让验收边界变模糊。
+# =====================================================================
+
+name: codewisdom
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: cw-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${CW_MYSQL_ROOT_PASSWORD:-codewisdom-root}
+      MYSQL_DATABASE: ${CW_MYSQL_DATABASE:-codewisdom}
+      MYSQL_USER: ${CW_MYSQL_USER:-codewisdom}
+      MYSQL_PASSWORD: ${CW_MYSQL_PASSWORD:-codewisdom}
+      # 建表脚本避开 MySQL 专有语法（见 architecture.md §9），显式指定排序规则
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --default-time-zone=+08:00
+      # 建表脚本用 DATETIME(3)，毫秒精度由列定义保证，这里不改 sql_mode
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # 用 root 而非业务用户：业务用户与库是**首次初始化时**才创建的，
+      # 初始化未完成前用业务用户 ping 会一直失败，健康检查永远不变绿
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  redis:
+    image: redis:7-alpine
+    container_name: cw-redis
+    restart: unless-stopped
+    # 开 AOF：解析缓存与幂等锁重启即丢的代价比多占点磁盘大
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  nacos:
+    image: nacos/nacos-server:v3.0.3
+    container_name: cw-nacos
+    restart: unless-stopped
+    environment:
+      # 单机模式：用内嵌存储，不接 MySQL。
+      # 接 MySQL 是生产形态，本地起中间件不引入这层依赖——多一个失败点，
+      # 而 T-003 要的是「一键起来」，不是「像生产」
+      MODE: standalone
+      PREFER_HOST_MODE: hostname
+      # ⚠️ Nacos 3.x **强制要求**鉴权令牌，不配就直接 exit 255 崩溃重启。
+      #    实测报错：`env NACOS_AUTH_TOKEN must be set with Base64 String.`
+      #    要求 Base64 编码，且**解码后长度 >= 32**。
+      #    默认值仅供本地开发；生产必须换成自己的密钥，不要用仓库里的这个。
+      NACOS_AUTH_ENABLE: "true"
+      NACOS_AUTH_TOKEN: ${CW_NACOS_AUTH_TOKEN:-Y29kZXdpc2RvbS1sb2NhbC1kZXYtc2VjcmV0LXRva2VuLTMyYg==}
+      NACOS_AUTH_IDENTITY_KEY: ${CW_NACOS_IDENTITY_KEY:-codewisdomServerIdentity}
+      NACOS_AUTH_IDENTITY_VALUE: ${CW_NACOS_IDENTITY_VALUE:-codewisdom-local-identity}
+      TZ: Asia/Shanghai
+    ports:
+      - "8848:8848"   # HTTP / OpenAPI —— 服务发现与配置中心，客户端连这个
+      - "9848:9848"   # gRPC，Nacos 客户端 2.x 起必需，漏了会连不上
+      # Nacos 3.x 把控制台拆成了独立 Web 应用，跑在容器内 8080。
+      # **不能映射成 8080**——那是本项目网关（codewisdom-gateway）的端口，会撞车。
+      # 映到 8849 便于本地打开控制台。
+      - "8849:8080"
+    volumes:
+      - nacos-logs:/home/nacos/logs
+    healthcheck:
+      # ⚠️ 不能用网上常见的 `/nacos/v1/console/health/readiness`：
+      #    实测在 Nacos 3.x 上返回 **410 Gone**（该端点已移除），
+      #    结果容器其实起来了、健康检查却一直报 unhealthy。
+      #    改用命名服务的 metrics 端点——应用做服务发现靠的就是命名服务，
+      #    它通才说明「对客户端可用」，比探页面更有意义。实测返回 200。
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8848/nacos/v1/ns/operator/metrics || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 90s
+
+  minio:
+    # 刻意用固定 RELEASE 标签而非 latest：MinIO 的 latest 每天都在变
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    container_name: cw-minio
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${CW_MINIO_USER:-codewisdom}
+      MINIO_ROOT_PASSWORD: ${CW_MINIO_PASSWORD:-codewisdom123}
+      TZ: Asia/Shanghai
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # 控制台
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      # 用服务自带的健康端点，不依赖镜像里有没有 curl
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: cw-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${CW_RABBITMQ_USER:-codewisdom}
+      RABBITMQ_DEFAULT_PASS: ${CW_RABBITMQ_PASSWORD:-codewisdom}
+      TZ: Asia/Shanghai
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # 管理台
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+volumes:
+  mysql-data:
+  redis-data:
+  nacos-logs:
+  minio-data:
+  rabbitmq-data:
