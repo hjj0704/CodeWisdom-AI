@@ -144,7 +144,7 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 | T-301 | ✅ | Tree-Sitter 解析器封装 + 语言注册表 | Java/Python 语法包加载成功 | `mvn -q -pl codewisdom-code-analysis -am -Dtest='LanguageRegistryTest,SourceParserTest' -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-302 | ✅ | 提取类/接口/枚举/注解/记录定义 | 对样例工程，类数量与包结构断言一致 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=JavaStructureExtractorTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-303 | ✅ | 提取方法签名、参数、返回值、行号 | 方法列表与预期快照一致 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=JavaMethodExtractorTest -Dsurefire.failIfNoSpecifiedTests=false test` |
-| T-304 | ⬜ | 提取 import / 跨文件调用关系 | 生成调用边，无自环噪音 | `mvn -q -pl codewisdom-code-analysis -Dtest=CallGraphTest test` |
+| T-304 | ✅ | 提取 import / 跨文件调用关系 | 生成调用边，无自环噪音 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=CallGraphTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-305 | ⏸️ 🐳 | **挂起** 解析结果入库 + Redis 缓存 + 分片并行 | 大工程分片解析耗时 < 单线程基线 | `mvn -q -pl codewisdom-code-analysis -Dtest=ParsePipelineTest test` |
 
 > **T-301 实现约定**（落在 `LanguageRegistry` / `SourceParser` / `ParseHandle`）：
@@ -187,6 +187,33 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 > 5. **参数注解在 `modifiers` 节点里**（与类型声明一致），不能只看参数的直接子节点。
 > 6. **构造器与同名方法靠节点类型区分**：`constructor_declaration` vs `method_declaration`，
 >    不能靠「有没有返回类型」推断。
+
+> **T-304 实测发现**（均在 `JavaDependencyExtractor` / `CallGraph` 中处理并有测试锁定）：
+> 1. **构造器体是 `constructor_body` 不是 `block`**——只按 `block` 找方法体会静默漏掉
+>    全部构造器内的调用，不报错、不抛异常，没有测试就永远发现不了。
+> 2. **`method_invocation` 的 `object` 在无接收者时缺失**（`requireNonNull(t)` 只有 `name` 字段），
+>    必须用 `isNull()` 判空节点，否则全被误当成 `this.xxx()`。
+> 3. **`type_arguments` 是 `name` 之前的独立字段**（`this.<String>foo()`），
+>    按子节点下标取方法名会取到泛型参数，只能按字段名取。
+> 4. **`import_declaration` 与 `method_reference` 没有字段名**：前者子节点是
+>    `import`/`static`?/`scoped_identifier`/`asterisk`?/`;`；**通配符的 `scoped_identifier`
+>    文本不含 `.*`**，`asterisk` 是兄弟节点。后者子节点是 限定符/`::`/成员名，
+>    其中 `X::new` 的第二段是 `new` **关键字节点**，只按 `identifier` 筛会漏。
+> 5. **静态导入 `import static a.b.C.member;` 的最后一段是成员名不是类型名**——
+>    直接建「简单名 → 类型」映射会把 `requireNonNull` 当成类，因此
+>    `ImportDeclaration.isDirectTypeImport()` 必须前置过滤。
+> 6. **构造器在调用图里统一记成 `<init>`**（与字节码一致）：用类名做标识会让
+>    `this(...)` 委派与自身不同标识，自环漏网，且同名重载会散成多个节点。
+> 7. **隐式构造器**：类/枚举/记录即使没写构造器也能 `new`，接口与注解不行，
+>    否则 `new Helper()` 会因「找不到 `<init>`」被误断边。
+> 8. **继承链上没找到方法就断边**，不把父类方法挂到子类头上——假边比缺边危害大，
+>    详见 `tech-spike.md` F-16。
+
+> **T-304 验收证据**：7 文件样例工程（`CallGraphTest`，24 个用例）——
+> 精确断言 12 条内部边 + 2 条外部边；递归自调用 / `this(...)` 委派 / 同类内部互调
+> 三类噪音分别在方法级与类型级滤掉，且方法级的同类互调<b>保留</b>；
+> 按需导入歧义（两个包下同名 `Dup`）判为未解析、不产边；
+> 继承来的方法挂到真正声明的父类型；静态导入指向宿主类型而非调用方自己。
 
 ## 阶段 4：架构逆向
 

@@ -333,6 +333,45 @@ byte[] header = buffered.readNBytes(4);   // 需先 mark/reset，否则流已被
 
 实测覆盖 19 个用例（`ZipExtractorTest`），含 6 种穿越写法 + 3 类炸弹 + 畸形名 + 损坏输入。
 
+**F-14｜`import_declaration` 与 `method_reference` 没有任何字段名**（等级：中，T-304 踩到并处理）
+
+这两个节点用 `getFieldNameForChild` 取值**全部返回 null**，只能按子节点类型或顺序取：
+
+| 节点 | 子节点结构 | 陷阱 |
+|---|---|---|
+| `import_declaration` | `import` → `static`? → `scoped_identifier`\|`identifier` → `asterisk`? → `;` | **通配符的 `scoped_identifier` 文本不含 `.*`**：`import java.util.*;` 里它的文本就是 `java.util`，`asterisk` 是**兄弟节点**。在文本里找 `*` 永远找不到 |
+| `method_reference` | 限定符 → `::` → 成员名 或 `new` | `X::new` 的第二个子节点是 `new` **关键字节点**，只按 `identifier` 类型筛会漏掉「构造器引用」这一类 |
+
+另：静态导入 `import static a.b.C.member;` 的完整文本是**成员路径**，最后一段是**成员名不是类型名**。
+直接拿它建「简单名 → 类型」映射，会把 `requireNonNull` 当成一个类。
+
+**F-15｜构造器体是 `constructor_body` 不是 `block`**（等级：高，T-304 踩到并处理）
+
+只按 `block` 节点找方法体，会**静默漏掉全部构造器内的调用**——不报错、不抛异常，只是少一批边，
+没有测试覆盖就永远发现不了。同一类「字段定位」陷阱还有两个：
+
+| 陷阱 | 后果 | 正解 |
+|---|---|---|
+| `constructor_body` ≠ `block` | 构造器里的调用全丢 | 递归遍历全部子节点，不要按 `block` 筛 |
+| `method_invocation.object` 无接收者时**缺失** | `requireNonNull(x)` 被当成 `this.requireNonNull(x)` | 用 `isNull()` 判「空节点」（同 F-9 的 `getChildByFieldName` 行为） |
+| `type_arguments` 是 `name` **之前**的独立字段 | `this.<String>foo()` 按子节点下标取名字会取到泛型参数 | 一律走 `getChildByFieldName("name")` |
+
+**F-16｜调用图的「不猜」原则**（等级：高，T-304 定策）
+
+调用图里一条**假边**比缺一条边危害大得多：下游的循环依赖检测（T-404）、分层识别（T-401）
+会被它带偏，而且假边与真边在输出里长得一模一样，无法人工识别。因此 `CallGraph` 的解析层定死几条：
+
+- 解析不到就**不产边**，调用点留在 `unresolvedCallSites()` 里备查，不静默丢弃；
+- 按需导入 `import a.b.*` 命中**多个**同名类时判歧义，不挑一个；
+- 接收者是链式调用结果、数组下标等复杂表达式时**不推断**类型；
+- 无接收者的调用按 JLS §6.5.6.1 先在本类型及其**工程内祖先**里找同名方法，找不到才落到静态导入，
+  仍找不到就断边——顺序反了会把静态导入的方法挂到调用方自己头上，产出一条指向自身的假边；
+- 目标类型在工程内但整条继承链上都没有该方法时，**不产边**（如 `StringBuilder`）；
+- 工程外的类型（JDK / 三方）查不到方法表，按解析出的**显式 import** 原样记外部边，
+  无 import 的隐式引用（`String`、`java.lang.*`）不计边，否则外部边会被噪声淹没。
+
+已由 `CallGraphTest` 24 个用例锁定（含递归自环、`this(...)` 委派、同类互调、歧义、继承链、静态导入）。
+
 ---
 
 ## 9. 未验证事项汇总（禁止在验证前当作既定事实）
