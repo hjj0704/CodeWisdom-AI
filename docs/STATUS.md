@@ -262,3 +262,5 @@ T-505 的「风险分级」已完成并测试通过（10 个用例）；**「问
 | `docs/spec.md` | 规范版需求 |
 | `docs/summaries/` | 依赖树等证据归档 |
 | `tools/mermaid-verify/` | Mermaid 官方解析器校验器（T-402 起）。**不参与 Java 构建**，`mvn` 产出与它无关；新机器要跑该用例先 `cd tools/mermaid-verify && npm install` |
+| **`docs/deployment.md`** | **云服务器部署清单**（阿里云 ECS 落地）。含逐条步骤、每步验证方法、安全组、省额度节奏、排错表 |
+| `deploy/` | 生产部署文件：`docker-compose.prod.yml`（端口只绑回环 + 内存限制）、`.env.example`、`codewisdom@.service`（systemd 模板）。**真实 `.env` 已被 gitignore，不进版本库** |

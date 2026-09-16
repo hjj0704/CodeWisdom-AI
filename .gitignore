@@ -38,3 +38,11 @@ dist/
 /tmp/
 *.tmp
 .spike-tmp/
+
+# ---- 部署密钥（**绝对不能进版本库**）----
+# deploy/.env 里有 MySQL / MinIO / RabbitMQ / Nacos 的明文密码。
+# 只提交 deploy/.env.example 模板，真实值留在服务器上（chmod 600）。
+.env
+deploy/.env
+*.env.bak
+

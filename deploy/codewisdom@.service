@@ -1,0 +1,55 @@
+# =====================================================================
+# CodeWisdom AI —— 服务 systemd 模板单元
+#
+# 一个模板管 6 个服务，不用写 6 份：
+#     systemctl start codewisdom@gateway
+#     systemctl start codewisdom@code-analysis
+#     systemctl start codewisdom@project-resource
+#     systemctl start codewisdom@agent-orchestration
+#     systemctl start codewisdom@evaluation-export
+#
+# 安装：
+#     cp codewisdom@.service /etc/systemd/system/
+#     systemctl daemon-reload
+#
+# 为什么不在服务器上构建、只传 jar：
+#   本机 Maven 仓库有 4.6G，构建时还会吃满 CPU 与内存。而经济型 e 是**共享型 CPU**，
+#   编译正好打在最短板。所以：本机 `mvn package` → 只传 jar 上来。
+# =====================================================================
+
+[Unit]
+Description=CodeWisdom AI 服务 %i
+Documentation=https://gitee.com/han-jiajiemm/CodeWisdom
+# 中间件在 Docker 里，服务必须等它们起来
+After=network-online.target docker.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/codewisdom
+# .env 与 docker-compose.prod.yml 用同一份：数据库账号密码只维护一处
+EnvironmentFile=/opt/codewisdom/.env
+
+# 内存按实测给的：单服务空闲约 220M。Xmx 给 256M 是留了余量，
+# 限得比实测还低会让 JVM 频繁 Full GC 甚至 OOM。
+# MaxMetaspaceSize 必须显式给——默认无上限，Spring 大量动态代理场景下会慢慢涨上去。
+ExecStart=/usr/bin/java \
+    -Xms128m -Xmx256m -XX:MaxMetaspaceSize=128m \
+    -XX:+UseSerialGC \
+    -Duser.timezone=Asia/Shanghai \
+    -jar /opt/codewisdom/jars/codewisdom-%i-1.0.0-SNAPSHOT.jar
+
+# 单核小机器上用 SerialGC：默认的 G1 会额外开 GC 线程、多占内存，
+# 而我们每个进程只有 256M 堆，SerialGC 反而更稳。
+
+Restart=on-failure
+RestartSec=10
+# 正常停止时 JVM 收到 SIGTERM 会以 143 退出，不算失败——不写这条会被反复重启
+SuccessExitStatus=143
+
+StandardOutput=append:/var/log/codewisdom/%i.log
+StandardError=append:/var/log/codewisdom/%i.log
+
+[Install]
+WantedBy=multi-user.target

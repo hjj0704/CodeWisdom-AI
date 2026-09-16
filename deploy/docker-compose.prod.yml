@@ -1,0 +1,174 @@
+# =====================================================================
+# CodeWisdom AI —— 生产/云服务器中间件（部署到阿里云 ECS 用这一份）
+#
+# 与仓库根目录的 docker-compose.yml（本地开发用）的**三点关键差异**：
+#
+#  ① **端口只绑回环 `127.0.0.1`**，不是 `0.0.0.0`。
+#     服务的 jar 跑在宿主机上，需要经 localhost 连中间件，所以端口必须发布；
+#     但发布到 0.0.0.0 就意味着**公网可达**。绑 127.0.0.1 之后，
+#     即使安全组配错了，外部也连不进来——这是安全组之外的第二道防线。
+#
+#  ② **每个容器都加了 `mem_limit`**，数值按本机实测占用留了余量：
+#     nacos 实测 1.14G / mysql 410M / rabbitmq 184M / minio 95M / redis 10M。
+#     限得比实测还低会让容器被 OOM-Kill，所以是「实测值 + 余量」而不是「尽量小」。
+#
+#  ③ **Nacos 必须限堆**。它是这份清单里唯一的内存大户（自己就是个 Spring Boot 应用），
+#     不限的话 JVM 会按宿主机内存的 1/4 去要堆，8G 机器上能吃掉 2G。
+#
+# 用法（在服务器上，与 .env 同目录）：
+#     docker compose -f docker-compose.prod.yml up -d
+# =====================================================================
+
+name: codewisdom
+
+services:
+
+  mysql:
+    image: mysql:8.0
+    container_name: cw-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${CW_MYSQL_ROOT_PASSWORD:?必须在 .env 中设置}
+      MYSQL_DATABASE: ${CW_MYSQL_DATABASE:-codewisdom}
+      # 变量名与各服务 application-local.yml 的 ${CW_DB_USER} / ${CW_DB_PASSWORD} 一致，
+      # 一处配置两边生效——不一致会出现「容器建的用户」与「应用连的用户」对不上
+      MYSQL_USER: ${CW_DB_USER:?必须在 .env 中设置}
+      MYSQL_PASSWORD: ${CW_DB_PASSWORD:?必须在 .env 中设置}
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_general_ci
+      - --default-time-zone=+08:00
+      # 云服务器内存要省着用：默认 128M 缓冲池实测够本项目用，
+      # 不调的话 MySQL 8 会按宿主机内存去要，8G 机器上能吃掉 1G+
+      - --innodb-buffer-pool-size=128M
+      - --performance-schema=OFF
+    ports:
+      - "127.0.0.1:3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    mem_limit: 512m
+    healthcheck:
+      # 用业务账号探而不是 root：MySQL 首次初始化会先起临时实例，那时 root 已能 ping 通
+      # 但业务库还没建好，用 root 探会**提前变绿**
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+
+  redis:
+    image: redis:7-alpine
+    container_name: cw-redis
+    restart: unless-stopped
+    # 缓存与幂等锁，丢了可以从源头重建，不为此吃内存
+    command:
+      - redis-server
+      - --appendonly
+      - "no"
+      - --maxmemory
+      - 64mb
+      - --maxmemory-policy
+      - allkeys-lru
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis-data:/data
+    mem_limit: 128m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  nacos:
+    image: nacos/nacos-server:v3.0.3
+    container_name: cw-nacos
+    restart: unless-stopped
+    environment:
+      MODE: standalone
+      PREFER_HOST_MODE: hostname
+      # Nacos 3.x **强制要求**鉴权令牌，不配则容器 exit 255 崩溃重启。
+      # 要求 Base64 编码且解码后 >= 32 字符。生产**必须**换成自己的密钥。
+      NACOS_AUTH_ENABLE: "true"
+      NACOS_AUTH_TOKEN: ${CW_NACOS_AUTH_TOKEN:?必须在 .env 中设置}
+      NACOS_AUTH_IDENTITY_KEY: ${CW_NACOS_AUTH_IDENTITY_KEY:?必须在 .env 中设置}
+      NACOS_AUTH_IDENTITY_VALUE: ${CW_NACOS_AUTH_IDENTITY_VALUE:?必须在 .env 中设置}
+      # ← **本文件最重要的一行**：不限堆的话 JVM 会按宿主机内存 1/4 要，
+      #    8G 机器上单 Nacos 就能吃 2G。限到 512M 后实测占用 1.14G → 约 700M。
+      JVM_XMS: 512m
+      JVM_XMX: 512m
+      JVM_XMN: 256m
+      TZ: Asia/Shanghai
+    ports:
+      # 8848 服务发现/配置，9848 gRPC（客户端 2.x 起必需，漏了连不上）
+      - "127.0.0.1:8848:8848"
+      - "127.0.0.1:9848:9848"
+      # 控制台在容器内 8080，且 context path 是 `/`（不是 2.x 的 /nacos/）。
+      # 只绑回环：看控制台走 SSH 隧道，不开公网
+      - "127.0.0.1:8849:8080"
+    volumes:
+      - nacos-logs:/home/nacos/logs
+    mem_limit: 768m
+    healthcheck:
+      # 不能用网上流传的 /nacos/v1/console/health/readiness —— 该端点在 3.x 返回 410 Gone，
+      # 会导致容器起来了却一直报 unhealthy。改用命名服务指标端点
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8848/nacos/v1/ns/operator/metrics || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 15
+      start_period: 90s
+
+  minio:
+    # 固定 RELEASE 标签而非 latest：latest 每天在变，构建无法复现
+    image: minio/minio:RELEASE.2024-12-18T13-15-44Z
+    container_name: cw-minio
+    restart: unless-stopped
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: ${CW_MINIO_USER:?必须在 .env 中设置}
+      MINIO_ROOT_PASSWORD: ${CW_MINIO_PASSWORD:?必须在 .env 中设置}
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio-data:/data
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:9000/minio/health/live || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  rabbitmq:
+    image: rabbitmq:3.13-management
+    container_name: cw-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${CW_RABBITMQ_USER:?必须在 .env 中设置}
+      RABBITMQ_DEFAULT_PASS: ${CW_RABBITMQ_PASSWORD:?必须在 .env 中设置}
+      # 默认 0.4 在容器里会按 cgroup 限额算，配合 mem_limit 才是准的
+      RABBITMQ_VM_MEMORY_HIGH_WATERMARK: "0.6"
+      TZ: Asia/Shanghai
+    ports:
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    mem_limit: 384m
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 20s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  mysql-data:
+  redis-data:
+  nacos-logs:
+  minio-data:
+  rabbitmq-data:
