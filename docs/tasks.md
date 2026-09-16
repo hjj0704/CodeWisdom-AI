@@ -332,7 +332,7 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 | T-502 | ✅ | `pom.xml` 依赖冲突检测（版本冲突/重复/无效） | 构造样例能检出冲突并给出路径 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=PomConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-503 | ✅ | `requirements.txt` 依赖解析与冲突检测 | 同上（Python 侧） | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ReqConflictTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-504 | ✅ | 架构隐患规则（循环依赖/分层混乱/职责不单一） | 与 T-404 结果打通，输出统一问题模型 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=ArchRiskTest -Dsurefire.failIfNoSpecifiedTests=false test` |
-| T-505 | ⬜ | 风险分级（高/中/低）+ 问题模型入库 | 每条问题含文件、行号、描述、风险说明、触发场景 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=AuditPipelineTest -Dsurefire.failIfNoSpecifiedTests=false test` |
+| T-505 | 🟡 | 风险分级（高/中/低）+ 问题模型入库 | 每条问题含文件、行号、描述、风险说明、触发场景 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=AuditPipelineTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 
 > **T-501 实现约定**（落在 `AuditIssue` / `AuditRule` / `AuditEngine` / `arch/rules/*`）：
 > 1. **统一问题模型只有一个**：代码缺陷、依赖冲突、架构隐患全部收敛成 `AuditIssue`
@@ -368,9 +368,41 @@ mvn -B -pl codewisdom-project-resource -am -Dtest='FileTreeEndpointTest' -Dsuref
 > 另有可插拔验证（自定义规则无需改引擎即生效、引擎不认识任何具体规则）、
 > 不误报验证（被调用的私有方法、`@PostConstruct` 回调、常量字段都不算死代码）、
 > 无调用图时死代码规则安静退出。
-> **阶段 5 门禁实测**：`-Dtest='*Audit*,*Conflict*,*Rule*,*Arch*'` → 47 个测试全绿
-> （`RuleEngineTest` 12 + `PomConflictTest` 9 + `ReqConflictTest` 12 + `ArchRiskTest` 14），
-> T-505 落地后 `AuditPipelineTest` 会自动纳入。
+> **阶段 5 门禁实测**：`-Dtest='*Audit*,*Conflict*,*Rule*,*Arch*'` → **57 个测试全绿**
+> （`RuleEngineTest` 12 + `PomConflictTest` 9 + `ReqConflictTest` 12 + `ArchRiskTest` 14 +
+> `AuditPipelineTest` 10）——T-505 的测试已自动纳入，门禁五个类全覆盖。
+
+> **T-505 进度：风险分级与汇总已完成，入库未做（等一个范围决定）**
+>
+> **已完成**（`AuditReport` / `AuditPipeline` / `AuditPipelineTest`，10 个用例）：
+> 1. **汇总**：四路产出（`AuditEngine` / `PomConflictAnalyzer` / `RequirementsConflictAnalyzer` /
+>    `ArchRiskAnalyzer`）**已经都是 `List<AuditIssue>`**，管线只做「去重 → 分级 → 稳定排序」，
+>    **不重新实现各分析器已经做过的字段校验与排序**，也不再跑一遍任何分析。
+> 2. **去重**：完全相同的条目（规则 + 文件 + 行号 + 描述）合并。同一文件被喂给同一路分析器两次
+>    会产出完全相同的条目，不合并会把风险计数灌水——而风险计数正是这份报告最直接被人看的东西。
+>    注意与 T-501 的约定不冲突：那里说的「不去重」指**不同规则**命中同一行，那是两条问题。
+> 3. **等级冲突取高不取低**：同一条发现被两路产出且等级不一致时保留更高的一档，
+>    宁可报重也不漏报。去重键**刻意不含等级**——把等级放进键里，两条会同时留下当作两个问题，
+>    反而把「同一处发现被判定成两个等级」这个异常掩盖过去。
+> 4. **分级恒定三档**：`countByRiskLevel()` 永远返回 高危/中危/低危 三行，无该档时为 0。
+>    只列出现过的档看着精简，但「高危 0」与「压根没统计高危」在报告里长得一样。
+> 5. **空报告不给自己安等级**：`highestRiskLevel()` 返回 `Optional.empty()`——
+>    「没有发现问题」与「问题都是低危」是两回事。
+>
+> **未做：问题模型入库**。原因不是做不了，是**范围需要确认**：
+> `codewisdom-code-analysis` 目前**完全没有持久化层**（无 MyBatis-Plus / H2 / Flyway 依赖、
+> 无数据源配置、无 entity/mapper 包），而「各服务接入 MySQL + MyBatis-Plus + Flyway 基线脚本」
+> 正是**挂起中的 T-105** 的职责。在 T-505 里半接一个数据源会让 T-105 落地时更难对齐。
+> 两个可选路径见 `docs/STATUS.md` 的「T-505 待决」。
+
+> **T-505 已完成的验收证据**：10 个用例。
+> ①分级计数、最高等级、含高危判定；②**三档恒定出现**（「高危 0」可区分于「没统计」）；
+> ③空报告不给自己安等级；④**等级冲突取高不取低**（负向用例）；
+> ⑤去重只在「规则/文件/行号/描述」四项全同时生效，任一不同都算两条；
+> ⑥`null` 与空输入不炸；⑦排序与传入顺序无关；
+> ⑧**端到端**：真实分析器（`AuditEngine` 四规则）的产出被直接汇总成报告，
+> 实测摘要 `共 4 条审计问题：高危 1 / 中危 2 / 低危 1，涉及 1 个文件`，
+> 并逐条断言六个字段齐全。
 >
 > ⚠️ **本卡发现并修正了门禁自身的缺陷**：原命令 `*Audit*,*Conflict*,*Rule*` **不匹配
 > `ArchRiskTest`**——也就是「架构隐患」这张卡不在阶段 5 的门禁里。与阶段 4 曾出现的
