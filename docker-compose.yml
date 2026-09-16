@@ -50,9 +50,11 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      # 用 root 而非业务用户：业务用户与库是**首次初始化时**才创建的，
-      # 初始化未完成前用业务用户 ping 会一直失败，健康检查永远不变绿
-      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p$$MYSQL_ROOT_PASSWORD --silent"]
+      # 用**业务账号**而不是 root 探测。
+      # 理由：MySQL 首次初始化时会先起一个临时实例跑建库建号脚本，此时 root 已经能 ping 通、
+      # 但业务库与业务账号还不存在——用 root 探会**提前变绿**，健康检查等于说谎。
+      # 用业务账号探，只有「库和账号都建好、应用真能连」时才变绿，这才是这个探针该回答的问题。
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u$$MYSQL_USER -p$$MYSQL_PASSWORD --silent"]
       interval: 10s
       timeout: 5s
       retries: 12
@@ -97,9 +99,10 @@ services:
     ports:
       - "8848:8848"   # HTTP / OpenAPI —— 服务发现与配置中心，客户端连这个
       - "9848:9848"   # gRPC，Nacos 客户端 2.x 起必需，漏了会连不上
-      # Nacos 3.x 把控制台拆成了独立 Web 应用，跑在容器内 8080。
-      # **不能映射成 8080**——那是本项目网关（codewisdom-gateway）的端口，会撞车。
-      # 映到 8849 便于本地打开控制台。
+      # Nacos 3.x 把控制台拆成了独立 Web 应用，跑在容器内 8080，**context path 是 `/`**。
+      # 也就是说 3.x 的控制台地址是 `http://<host>:<port>/`，**不是 2.x 的 `/nacos/`**
+      # ——实测访问 `/nacos/` 返回 500 `No static resource nacos.`，会让人以为控制台坏了。
+      # 另外**不能映射成宿主 8080**：那是本项目网关（codewisdom-gateway）的端口，会撞车。映到 8849。
       - "8849:8080"
     volumes:
       - nacos-logs:/home/nacos/logs

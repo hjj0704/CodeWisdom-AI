@@ -3,23 +3,27 @@
 > 每张卡 ≤ 2 小时。**每次只执行一张卡，先出计划，等用户回复「执行」后再写代码。**
 > 测试命令约定：Maven 用 `mvn -q -pl <module> -am test`；单类用 `-Dtest=<Class> test`。
 
-## 阶段 0：技术验证与文档初始化 —— ✅ 已完成（T-003/T-008 挂起）
+## 阶段 0：技术验证与文档初始化 —— 🟡 进行中（Docker 已就绪，回来补 T-008）
 
 | 卡号 | 状态 | 任务 | 验收 | 测试命令 |
 |---|---|---|---|---|
 | T-000 | ✅ | 文档初始化（CLAUDE.md + docs/*） | 7 份文档存在且内容完整 | `ls docs` |
 | T-001 | ✅ | 环境补齐：`git init` + `.gitignore`。~~安装 Docker Desktop~~ **（用户决定跳过，2026-09-15）** | `git status` 可执行 | `git status` |
 | T-002 | ✅ | 父 pom + common + 5 个空服务骨架，**不接入任何中间件** | 7 个 module 全部编译成功 | `mvn clean verify` |
-| T-003 | 🟡 | docker-compose：Nacos/MySQL/Redis/MinIO/RabbitMQ | 5 个容器 healthy（**4/5 已 healthy**，mysql 待用户停掉本机服务） | `docker compose up -d && docker compose ps` |
+| T-003 | ✅ | docker-compose：Nacos/MySQL/Redis/MinIO/RabbitMQ | **5 个容器全部 healthy**，且逐个做了真实可用性验证 | `docker compose up -d && docker compose ps` |
 | T-004 | ✅ | **S1 冒烟**：全套技术栈依赖共存 | 零 `omitted for conflict` | 见下方「S1 验证方法」 |
 | T-005 | ✅ | **S2 冒烟**：Tree-Sitter 解析 Java ⭐关键路径 | 取到 `class_declaration`/`method_declaration` 节点名+行号，且 ABI 兼容 | `mvn -q -pl codewisdom-code-analysis -am -Dtest=TreeSitterSmokeTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-006 | ✅ | **S3 冒烟**：LangGraph4j 条件分支 + 循环边 ⭐关键路径 | 图执行完，驳回循环生效，Mermaid 可生成 | `mvn -q -pl codewisdom-agent-orchestration -am -Dtest=LangGraphSmokeTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-007 | ✅ | **S4 冒烟**：JGit 拉取公开仓库 | 克隆成功且能遍历文件树 | `mvn -q -pl codewisdom-project-resource -am -Dtest=JGitSmokeTest -Dsurefire.failIfNoSpecifiedTests=false test` |
 | T-008 | ⏸️ 🐳 | **挂起** **S5 冒烟**：MinIO 建桶/传/下/删 | 四步全通 | `mvn -q -pl codewisdom-project-resource -Dtest=MinioSmokeTest test` |
 
-> **T-003 进度（2026-09-16，Docker 已安装）**：`docker-compose.yml` 已写好并通过 `docker compose config` 校验；
-> **minio / nacos / rabbitmq / redis 四个容器 healthy ✓**，mysql 因**本机 MySQL 8.1 服务占用 3306** 起不来，
-> 待用户以管理员身份 `net stop mysql` 后补验（用户已选「停本机、用容器」）。
+> **T-003 已完成（2026-09-16，Docker 已安装）**：`docker compose up -d` 后 **5 个容器全部 healthy**，
+> 且逐个做了**真实可用性验证**（不只是看 healthy 标志）：
+> MySQL 8.0.46 业务账号可连、库 `codewisdom` 存在、`utf8mb4`；Redis SET/GET/PING 通；
+> Nacos 命名服务 metrics 200、控制台 200；MinIO 健康端点 200；RabbitMQ 诊断 ping 成功、管理台 200。
+>
+> 过程中本机 MySQL 8.1 服务占用 3306，用户以管理员身份停掉后，容器正常接管（已确认真实并发起）。
+> 停掉的本机 MySQL 用 `net start mysql` 可随时恢复；想彻底避免，可在 `services.msc` 把启动类型改成「手动」。
 >
 > **T-003 实测踩到的四个坑**（都写进了 `docker-compose.yml` 的注释，都有实测证据）：
 > 1. **Nacos 3.x 强制要求鉴权令牌**：不配 `NACOS_AUTH_TOKEN`（Base64、解码后 ≥32 字符）时容器
@@ -34,6 +38,12 @@
 > 4. **Docker 会继承 Windows 系统代理**：系统代理开着（`127.0.0.1:7890`）但代理软件没跑时，
 >    所有 registry 请求打到死端口，报错形态是 `connectex: ... actively refused`，
 >    看起来像镜像站挂了。已把 Docker Desktop 设为直连。
+> 5. **Nacos 3.x 控制台在根路径 `/`，不是 2.x 的 `/nacos/`**：实测 `/nacos/` 返回
+>    **500 `No static resource nacos.`**，很容易被当成「控制台坏了」。正确入口是
+>    `http://127.0.0.1:8849/`（宿主 8849 → 容器 8080）。
+> 6. **健康检查要用业务账号而不是 root 探 MySQL**：MySQL 首次初始化会先起一个临时实例跑建库建号脚本，
+>    此时 root 已能 ping 通、但业务库与账号还不存在——用 root 探会**提前变绿**，
+>    健康检查等于说谎。改用业务账号探，只有「应用真能连」时才变绿。（第一版写反了，已修正。）
 
 > **本机 Docker 环境已做的改动**（都不在仓库里，均已备份可还原）：
 > - `~/.docker/daemon.json` 加镜像加速器（`docker.m.daocloud.io` + `docker.1ms.run`），

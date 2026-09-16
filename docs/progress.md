@@ -30,9 +30,12 @@ code-analysis 没有持久化层，半接数据源会让 T-105 统一接入时�
 **在 T-105 完成前，不能说「审计结果已入库」。**
 
 **Docker 已就绪（2026-09-16）**：Docker Desktop 29.8.0 + Compose v5.5.1 实测可用，
-**此前挂起的 14 张卡全部解锁**。当前正在补 T-003：
-`docker-compose.yml` 已写好，**minio / nacos / rabbitmq / redis 四个容器 healthy**，
-mysql 待用户以管理员身份 `net stop mysql`（本机 MySQL 8.1 占着 3306）。
+**此前挂起的 14 张卡全部解锁**。**T-003 已完成**：`docker compose up -d` 后
+**5 个容器全部 healthy**，且逐个做了真实可用性验证（MySQL 8.0.46 业务账号可连、Redis 读写、
+Nacos 命名服务与控制台、MinIO 健康端点、RabbitMQ 诊断与管理台）。
+
+**下一批候选**：T-008（MinIO S5 冒烟）、T-105（各服务接入 MySQL + Flyway，**并接手 T-505
+移入的审计问题入库**）、T-103/T-104（网关 Nacos + OpenAPI 聚合）。
 
 ⚠️ **本机 Docker 的两个环境前提**（不在仓库里，已备份）：
 ① Docker Hub **直连不可达**，必须走镜像加速器（已配在 `~/.docker/daemon.json`）；
@@ -45,9 +48,9 @@ mysql 待用户以管理员身份 `net stop mysql`（本机 MySQL 8.1 占着 330
 
 | 阶段 | 名称 | 状态 | 完成卡 / 总卡 |
 |---|---|---|---|
-| 阶段 0 | 技术验证与文档初始化 | 🟡 进行中（Docker 已就绪，回来补卡） | 7 / 9（T-003 4/5、T-008 待做） |
+| 阶段 0 | 技术验证与文档初始化 | 🟡 进行中（Docker 已就绪，回来补 T-008） | 8 / 9 |
 | 阶段 1A | 工程骨架（零中间件） | ✅ **已完成** | 3 / 3 |
-| 阶段 1B | 中间件接入 | ⏸️ 挂起（等 Docker） | 0 / 3 |
+| 阶段 1B | 中间件接入 | ⬜ 已解锁（Docker 就绪，下一批做） | 0 / 3 |
 | 阶段 2 | 项目多源导入 | ✅ **已完成**（T-205、T-206 挂起） | 4 / 6 |
 | 阶段 3 | 代码解析服务 | ✅ **已完成**（T-305 挂起） | 4 / 5 |
 | 阶段 4 | 架构逆向 | ✅ **已完成** | 4 / 4 |
@@ -140,9 +143,9 @@ mysql 待用户以管理员身份 `net stop mysql`（本机 MySQL 8.1 占着 330
 | S2 | Tree-Sitter 解析 Java | ✅ **通过** | ABI core=15 / min=13 / grammar=14，兼容；类/方法/行号提取正确 |
 | S3 | LangGraph4j 建图执行 | ✅ **通过** | 条件分支 + HITL 循环边跑通；执行序列 `__START__→audit→fix→hitl→fix→hitl→__END__` |
 | S4 | JGit 拉取公开仓库 | ✅ **通过** | 克隆 Gitee RuoYi：706 文件 / branch=master / head=7995a83e |
-| S5 | MinIO 连通 | ⏸️ 挂起 | 等 Docker |
-| S6 | Nacos 注册发现 | ⏸️ 挂起 | 等 Docker |
-| S7 | docker compose 起中间件 | 🟡 进行中 | Docker 已装（29.8.0）；**4/5 容器 healthy**（minio/nacos/rabbitmq/redis），mysql 待停本机服务 |
+| S5 | MinIO 连通 | ⬜ 待做 | Docker 已就绪（MinIO 容器 healthy），T-008 验建桶/传/下/删 |
+| S6 | Nacos 注册发现 | ⬜ 待做 | Docker 已就绪（Nacos 容器 healthy），待 T-103 验客户端注册 |
+| S7 | docker compose 起中间件 | ✅ **通过** | **5 个容器全部 healthy** 且逐个真实可用性验证（2026-09-16）；`docker-compose.yml` 已入库 |
 
 > **阶段 3 与阶段 4+ 的关键路径阻塞项（S2、S3）已全部解除。**
 > **S7 于 2026-09-16 解冻**（Docker 就绪），正在补 T-003。
@@ -211,7 +214,9 @@ mysql 待用户以管理员身份 `net stop mysql`（本机 MySQL 8.1 占着 330
 | 2026-09-16 | T-505 | 汇总管线 `AuditPipeline`：四路产出只做「去重 → 分级 → 排序」，**不重新实现各分析器已做过的校验与排序**；去重键刻意不含等级，等级冲突时**取高不取低** | `AuditPipeline`、`AuditPipelineTest` |
 | 2026-09-16 | T-505 | **决策：入库移入 T-105**。code-analysis 无持久化层（无 MyBatis-Plus / H2 / Flyway、无数据源、无 entity/mapper），而「各服务接入 MySQL」正是 T-105 的职责；半接数据源会让 T-105 统一接入时返工 | `docs/tasks.md`、`docs/STATUS.md`、`docs/progress.md` |
 | 2026-09-16 | T-003 | **Docker 就绪**：Docker Desktop 29.8.0 + Compose v5.5.1 实测可用；配镜像加速器（Docker Hub 直连不通）、改 Docker 为直连（系统代理指向未运行的 7890）；`docker-compose.yml` 写好并通过 config 校验 | `docker-compose.yml`、`~/.docker/daemon.json` |
-| 2026-09-16 | T-003 | **4/5 容器 healthy**（minio/nacos/rabbitmq/redis）；踩到 Nacos 3.x 三个坑：强制鉴权令牌、就绪探针 v1 端点返回 410、控制台移到容器内 8080（避开网关的 8080） | `docker-compose.yml` |
+| 2026-09-16 | T-003 | **完成：5 个容器全部 healthy** + 逐个真实可用性验证；S7 通过 | `docker-compose.yml` |
+| 2026-09-16 | T-003 | 踩到 Nacos 3.x **四个**差异：强制鉴权令牌、就绪探针 v1 端点返回 410、控制台在**根路径** `/`（2.x 是 `/nacos/`，实测后者 500）、控制台端口容器内 8080（避开网关） | `docker-compose.yml` |
+| 2026-09-16 | T-003 | **修正健康检查的错误推理**：第一版用 root 探 MySQL 并注释「业务用户未初始化完成前会一直失败」——恰恰相反，用 root 会**提前变绿**（MySQL 初始化时先起临时实例）。改用业务账号探 | `docker-compose.yml` |
 | 2026-09-16 | T-505 | **阶段 5 收尾**：`acceptance.md` 阶段 5 六条验收标准**无一条涉及数据库**，已全部满足；门禁 57 个测试全绿 | `docs/tasks.md` |
 | 2026-09-16 | T-504 | **修复阶段 5 门禁漏卡**：原命令 `*Audit*,*Conflict*,*Rule*` 不匹配 `ArchRiskTest`，「架构隐患」这张卡不在自己的阶段门禁里。与阶段 4 的 `*Arch*` 空集同类，已补 `*Arch*` | `docs/acceptance.md` |
 | 2026-09-16 | T-503 | **重构 `TechStackDetector` 复用 requirements 读取器**（与 T-502 的 pom 侧同理），T-403 的 14 个用例保持绿 | `TechStackDetector` |
