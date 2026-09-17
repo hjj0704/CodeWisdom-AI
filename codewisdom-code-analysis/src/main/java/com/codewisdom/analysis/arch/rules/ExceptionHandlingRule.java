@@ -46,7 +46,7 @@ public class ExceptionHandlingRule implements AuditRule {
 
     @Override
     public AuditIssue.RiskLevel riskLevel() {
-        return AuditIssue.RiskLevel.MEDIUM;
+        return AuditIssue.RiskLevel.LOW;
     }
 
     @Override

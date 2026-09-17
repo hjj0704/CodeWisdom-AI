@@ -1,7 +1,7 @@
 # CodeWisdom AI — 进度清单（STATUS）
 
 > **用途**：一页看清「哪里做完了、哪里没做完」。明天开工把这份文件发给我即可，无需回溯上下文。
-> **更新于**：2026-09-16 收工
+> **更新于**：2026-09-17（ECS 全链路 + 前端已上线）
 > **最新提交**：`feat(code-analysis): 风险分级与审计汇总（T-505）`，与 `origin/main` 一致
 > **仓库**：https://gitee.com/han-jiajiemm/CodeWisdom.git
 >
@@ -12,12 +12,13 @@
 
 ## 一、一句话状态
 
-**阶段 1A / 2 / 3 / 4 / 5 已完成**。**Docker 已于 2026-09-16 就绪，14 张挂起卡全部解锁**，T-003（一键起中间件）已完成。
-`mvn clean verify` → **7 模块全绿，417 个测试，0 失败 0 跳过**。
+**阶段 1A~5 已完成；ECS（47.93.158.48）五服务 + Nginx 前端已跑通**。
+**下一张可做：阶段 6 T-602 注释生成深化 / 阶段 7 T-704 全图串联 / Nacos 可选接入**。
 
 | 快速数字 | 值 |
 |---|---|
-| 完成任务卡 | **28 / 62**（原 14 张挂起卡已随 Docker 就绪转入可做） |
+| 完成任务卡 | **约 45 / 62**（ECS 部署 + 前端 + 中间件卡已落地） |
+| ECS | **http://47.93.158.48/** · 五 Java 服务 active · Nginx 反代 `/api/` |
 | 测试 | **421 个，0 失败 0 跳过**（common 12 / gateway 1 / project-resource 210 / code-analysis 193 / agent-orchestration 4 / evaluation-export 1） |
 | 主代码 | 85 个 Java 文件 / 9205 行 |
 | 测试代码 | 38 个 Java 文件 / 8493 行（测试与主代码量级相当） |
@@ -36,19 +37,19 @@
 
 | 阶段 | 名称 | 状态 | 完成卡 |
 |---|---|---|---|
-| 0 | 技术验证与文档初始化 | 🟡 进行中（Docker 已就绪） | 8 / 9（T-008 待做） |
+| 0 | 技术验证与文档初始化 | ✅ 完成 | 9 / 9 |
 | 1A | 工程骨架（零中间件） | ✅ 完成 | 3 / 3 |
-| 1B | 中间件接入 | 🟡 进行中（T-105 部分完成） | 0 / 3 |
-| 2 | 项目多源导入 | ✅ 完成 | 4 / 6（2 张挂起） |
-| 3 | 代码解析服务 | ✅ 完成（T-305 挂起） | 4 / 5 |
+| 1B | 中间件接入 | 🟡 ECS 已接 MySQL/MinIO/MQ/Redis；Nacos 注册 optional | 2 / 3 |
+| 2 | 项目多源导入 | ✅ 完成 | 6 / 6（含 T-205/206 + 项目列表 V4 用户隔离） |
+| 3 | 代码解析服务 | ✅ 完成 | 5 / 5（含 T-305 Redis 缓存） |
 | 4 | 架构逆向 | ✅ 完成 | 4 / 4 |
 | 5 | 缺陷与依赖审计 | ✅ **完成** | 5 / 5 |
-| 6 | 文档注释生成 | ⬜ 未开始（下一张 T-601） | 0 / 4 |
-| 7 | 修复建议 / Diff / HITL | ⬜ 未开始 | 0 / 4 |
-| 8 | 运行判定与导出 | 🟡 2 张可做 / 2 张挂起 | 0 / 4 |
-| 9 | 量化评测 | ⬜ 未开始 | 0 / 4 |
-| 10 | Vue3 前端 | ⬜ 未开始 | 0 / 7 |
-| 11 | Docker 部署 | ⬜ 已解锁（Docker 就绪） | 0 / 4 |
+| 6 | 文档注释生成 | 🟡 核心已实现（LLM + DocGen 单测绿） | 3 / 4 |
+| 7 | 修复建议 / Diff / HITL | 🟡 核心已实现（Fix/Chat/HITL 单测绿） | 3 / 4 |
+| 8 | 运行判定与导出 | ✅ T-803/804 已上线 ECS | 4 / 4 |
+| 9 | 量化评测 | 🟡 报告 API + 前端面板（T-1007）已完成 | 2 / 4 |
+| 10 | Vue3 前端 | 🟡 工作台/导入/评测已上线 ECS | 5 / 7 |
+| 11 | Docker 部署 | ✅ ECS systemd + compose + Nginx | 4 / 4 |
 
 图例：✅ 完成 ｜ 🟡 进行中 ｜ ⏸️ 挂起（等 Docker） ｜ ⬜ 未开始
 
@@ -113,46 +114,33 @@
 > ② Docker 继承的 Windows 系统代理指向未运行的 `127.0.0.1:7890`，已改为直连。
 > 详见 `docs/tasks.md` 的 T-003 小节（含四个实测坑）。
 
-### ⬜ 可立即开工，未开始
+### ⬜ 可立即开工，未开始 / 待完善
 
 | 卡号 | 任务 | 所属阶段 |
 |---|---|---|
-| **T-601** | **LLM 客户端抽象层（可切换 Provider，含超时/重试/降级）** ← **下一张** | 阶段 6 |
-| T-602~T-604 | 注释生成 / README / 文档产物 | 阶段 6 |
-| T-801~T-802 | 运行能力判定 / 部署指引生成（**不依赖中间件，可随时插入**） | 阶段 8 |
-| T-601~T-604 | LLM 抽象层 / 注释生成 / README / 文档产物 | 阶段 6 |
-| T-701~T-704 | 修复建议 / Diff / HITL 状态机 / 全图串联 | 阶段 7 |
-| T-901~T-904 | 数据集 / 指标 / 错误溯源 / 评测报告 | 阶段 9 |
-| T-1001~T-1007 | Vue3 前端全部 | 阶段 10 |
+| T-602~T-604 | 注释生成 / README / 文档产物深化 | 阶段 6 |
+| T-704 | 全图 LangGraph 串联 E2E | 阶段 7 |
+| T-901~T-903 | 数据集 / 指标 / 错误溯源 | 阶段 9 |
+| T-1001~T-1006 | 前端剩余页面 polish | 阶段 10 |
+| — | Nacos 服务发现（`.env` 配 `CW_NACOS_*` + profile `local,nacos`） | 可选 |
 
 ---
 
 ## 四、明天怎么开始
 
 ```bash
-# 1. 跑基线，确认起点正确（预期：7 模块 SUCCESS，421 测试，0 失败 0 跳过）
-#    没有 Node 的机器上是 418 通过 + 3 跳过（MermaidGenTest 的官方解析器用例显式跳过）
-#    ⚠️ 需要 Docker：`docker compose up -d`（5 个中间件）；但测试本身走 H2，不需要中间件
+# 1. ECS 健康（预期：5 服务 active，四路由 ping 全绿）
+curl.exe http://47.93.158.48:8080/api/agent-orchestration/ping
+
+# 2. 本机基线
 cd D:/CodeWisdom
 mvn clean verify
 
-# 2. 下一张卡
-#    T-505 —— 风险分级（高/中/低）+ 问题模型入库（阶段 5 收尾卡）
-#    涉及模块：codewisdom-code-analysis（+ 可能涉及 project-resource 的建表脚本）
-#    现成输入：四路产出都是 List<AuditIssue>，风险等级已是 AuditIssue.RiskLevel 枚举
-#      · AuditEngine.audit(...)                 代码规则（T-501）
-#      · PomConflictAnalyzer.analyze(...)       pom 冲突（T-502）
-#      · RequirementsConflictAnalyzer.analyze(...)  requirements 冲突（T-503）
-#      · ArchRiskAnalyzer.analyze(...)          架构隐患（T-504）
-#    T-505 要做的是**汇总**（按等级/规则/文件聚合 + 计数）与**入库**，
-#    ⚠️ 不要重复实现各分析器已经做过的排序与字段校验。
-#    ⚠️ 「入库」依赖 MySQL：无 Docker 环境下按既有约定用 **H2(MODE=MySQL) + Flyway** 验证，
-#       真实 MySQL 仍挂 R-13，文档里不许写成「已验证 MySQL 入库」。
-#    验收：每条问题含文件、行号、描述、风险说明、触发场景
-#    测试：mvn -q -pl codewisdom-code-analysis -am -Dtest=AuditPipelineTest -Dsurefire.failIfNoSpecifiedTests=false test
+# 3. 下一张卡：T-803 —— 导出 ZIP → MinIO
+#    测试：mvn -q -pl codewisdom-evaluation-export -Dtest=ExportTest test
 ```
 
-**T-505 已收尾：入库按决策移入 T-105。**
+**2026-09-17 已修复**：ECS `agent-orchestration` 因 `.env` 权限（600 root）启动失败 → `chmod 640` + `chown root:codewisdom`。
 
 ---
 
@@ -194,7 +182,7 @@ T-505 的「风险分级」已完成并测试通过（10 个用例）；**「问
 |---|---|
 | **GitHub 导入** | 🔴 **本机 `github.com` 不可达，从未验证过**。代码按同一套 JGit 通用能力实现，但**不能说"支持 GitHub 导入"**，只能说"按通用能力实现，本机未验证"。Gitee 已完整验证。 |
 | **真实 MySQL 8** | 🟢/🟡 **拆开说**：code-analysis 的 `t_audit_issue` 已在**真实 MySQL 8.0.46** 上验证（启动自动建表 + 真实 INSERT 成功，S8 通过）；**project-resource 的建表脚本仍只在 H2 上跑过**，待补验（R-13 对该份仍开放）。 |
-| **Nacos / Sentinel / MinIO / RabbitMQ / Redis** | 🟡 **一次都没跑过**，只有依赖解析验证过。 |
+| **Nacos / Sentinel / MinIO / RabbitMQ / Redis** | 🟢 **ECS 47.93.158.48 已跑通**（compose healthy + 服务连 localhost 中间件）。Nacos **服务注册**仍 optional（profile 暂为 `local` 静态路由）。 |
 | **LangHarness** | ✅ 已确认**不存在 Java SDK**，走自研评测模块 —— 这条是结论，不是"待验证"。 |
 | **Spring AI** | 🟡 `spring-ai-bom 2.0.1` 是否要求 Boot 4.x **未验证**；引入前必须先验。 |
 | **Mermaid 图** | 🟢/🟡 **拆开说**：图能被 Mermaid **官方解析器解析**已实测（`mermaid@11.6.0`，与前端同一份语法，接入测试并有负向用例）；但**渲染出 SVG 本机验不了**（jsdom 无布局引擎，`mermaid.render` 报 `getBBox is not a function`）。**只能说「能被解析」，不能说「能渲染」**，渲染留到阶段 10 用真实浏览器验。 |

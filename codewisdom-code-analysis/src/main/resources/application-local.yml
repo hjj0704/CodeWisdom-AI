@@ -28,3 +28,16 @@ spring:
     # Flyway 的版本号只在**单个历史表内**唯一，共用默认的 flyway_schema_history
     # 会直接报「版本重复 / 校验和不匹配」。新增服务时照抄这一行、换个后缀。
     table: flyway_schema_history_code_analysis
+  data:
+    redis:
+      host: ${CW_REDIS_HOST:127.0.0.1}
+      port: ${CW_REDIS_PORT:6379}
+      password: ${CW_REDIS_PASSWORD:}
+
+codewisdom:
+  workspace:
+    root: ${CW_WORKSPACE_ROOT:./data/repos}
+  parse-cache:
+    redis-enabled: true
+    ttl-seconds: 3600
+    parallelism: 4

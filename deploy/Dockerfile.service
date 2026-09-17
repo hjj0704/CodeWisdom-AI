@@ -1,0 +1,12 @@
+# T-1101：通用 Java 服务镜像（构建前需 mvn package）
+# 用法：docker build -f deploy/Dockerfile.service --build-arg JAR=codewisdom-gateway/target/codewisdom-gateway-1.0.0-SNAPSHOT.jar -t cw-gateway .
+
+ARG JAR
+FROM eclipse-temurin:17-jre-alpine
+WORKDIR /app
+RUN addgroup -S cw && adduser -S cw -G cw
+COPY ${JAR} app.jar
+USER cw
+ENV JAVA_OPTS="-Xms128m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC"
+EXPOSE 8080
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -Duser.timezone=Asia/Shanghai -jar /app/app.jar"]

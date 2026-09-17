@@ -1,0 +1,59 @@
+# 启用方式：SPRING_PROFILES_ACTIVE=local,nacos（或 prod,nacos）
+# 依赖 docker-compose 中的 Nacos 3.x（8848/9848），账号默认 nacos/nacos。
+spring:
+  cloud:
+    nacos:
+      username: ${CW_NACOS_USERNAME:nacos}
+      password: ${CW_NACOS_PASSWORD:nacos}
+      discovery:
+        enabled: true
+        server-addr: ${CW_NACOS_SERVER:127.0.0.1:8848}
+        namespace: ${CW_NACOS_NAMESPACE:}
+        group: ${CW_NACOS_GROUP:DEFAULT_GROUP}
+    sentinel:
+      eager: true
+      transport:
+        dashboard: ${CW_SENTINEL_DASHBOARD:}
+      scg:
+        fallback:
+          mode: response
+          response-status: 429
+          response-body: '{"code":429,"message":"请求过于频繁，请稍后重试"}'
+    gateway:
+      routes:
+        - id: codewisdom-project-resource
+          uri: lb://codewisdom-project-resource
+          predicates:
+            - Path=/api/project-resource/**
+          filters:
+            - StripPrefix=2
+        - id: codewisdom-code-analysis
+          uri: lb://codewisdom-code-analysis
+          predicates:
+            - Path=/api/code-analysis/**
+          filters:
+            - StripPrefix=2
+        - id: codewisdom-agent-orchestration
+          uri: lb://codewisdom-agent-orchestration
+          predicates:
+            - Path=/api/agent-orchestration/**
+          filters:
+            - StripPrefix=2
+        - id: codewisdom-evaluation-export
+          uri: lb://codewisdom-evaluation-export
+          predicates:
+            - Path=/api/evaluation-export/**
+          filters:
+            - StripPrefix=2
+        # T-103 验收：不经 /api 前缀直达下游 actuator
+        - id: codewisdom-code-analysis-actuator
+          uri: lb://codewisdom-code-analysis
+          predicates:
+            - Path=/code-analysis/**
+          filters:
+            - StripPrefix=1
+
+codewisdom:
+  gateway:
+    openapi:
+      use-discovery: true

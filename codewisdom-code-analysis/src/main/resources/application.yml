@@ -6,6 +6,10 @@ spring:
     name: codewisdom-code-analysis
   profiles:
     active: local
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
 
 management:
   endpoints:

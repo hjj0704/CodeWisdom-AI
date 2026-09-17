@@ -1,0 +1,10 @@
+spring:
+  cloud:
+    nacos:
+      username: ${CW_NACOS_USERNAME:nacos}
+      password: ${CW_NACOS_PASSWORD:nacos}
+      discovery:
+        enabled: true
+        server-addr: ${CW_NACOS_SERVER:127.0.0.1:8848}
+        namespace: ${CW_NACOS_NAMESPACE:}
+        group: ${CW_NACOS_GROUP:DEFAULT_GROUP}

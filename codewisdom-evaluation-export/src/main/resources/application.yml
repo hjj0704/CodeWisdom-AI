@@ -6,6 +6,10 @@ spring:
     name: codewisdom-evaluation-export
   profiles:
     active: local
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
 
 management:
   endpoints:

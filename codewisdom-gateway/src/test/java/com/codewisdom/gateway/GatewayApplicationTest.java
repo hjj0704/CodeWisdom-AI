@@ -18,7 +18,7 @@ class GatewayApplicationTest {
     private RouteDefinitionLocator routeDefinitionLocator;
 
     @Test
-    @DisplayName("上下文加载成功且 4 条静态路由已注册")
+    @DisplayName("上下文加载成功且静态路由已注册（含 T-103 验收路由）")
     void contextLoadsWithStaticRoutes() {
         var routeIds = routeDefinitionLocator.getRouteDefinitions()
                 .map(def -> def.getId())
@@ -31,6 +31,7 @@ class GatewayApplicationTest {
                         "codewisdom-project-resource",
                         "codewisdom-code-analysis",
                         "codewisdom-agent-orchestration",
-                        "codewisdom-evaluation-export");
+                        "codewisdom-evaluation-export",
+                        "codewisdom-code-analysis-actuator");
     }
 }

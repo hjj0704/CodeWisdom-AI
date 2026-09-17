@@ -22,6 +22,12 @@ public record GitImportRequest(
         String branch,
 
         @Size(max = 128, message = "项目名过长")
-        String name
+        String name,
+
+        /** Git 导入时是否允许后续 ZIP 导出；默认 true。 */
+        Boolean exportEnabled,
+
+        /** 异步导入（T-206）：立即返回 PENDING，由 {@code cw.parse} 消费执行。 */
+        Boolean async
 ) {
 }

@@ -4,6 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.codewisdom.common.api.ErrorCode;
 import com.codewisdom.common.exception.BizException;
 import com.codewisdom.resource.config.ImportProperties;
+import com.codewisdom.resource.config.MqProperties;
+import com.codewisdom.resource.mq.ParseTaskMessage;
+import com.codewisdom.resource.mq.ParseTaskPublisherPort;
 import com.codewisdom.resource.domain.enums.FileNodeType;
 import com.codewisdom.resource.domain.enums.ImportTaskStatus;
 import com.codewisdom.resource.domain.enums.ProjectStatus;
@@ -70,6 +73,9 @@ public class ImportService {
     private final FileNodeMapper fileNodeMapper;
     private final TransactionTemplate transactionTemplate;
     private final ImportProperties properties;
+    private final SourceArchiveService sourceArchiveService;
+    private final ParseTaskPublisherPort parseTaskPublisher;
+    private final MqProperties mqProperties;
 
     public ImportService(RepoUrlValidator urlValidator,
                          GitRepoFetcher fetcher,
@@ -79,7 +85,10 @@ public class ImportService {
                          ImportTaskMapper importTaskMapper,
                          FileNodeMapper fileNodeMapper,
                          TransactionTemplate transactionTemplate,
-                         ImportProperties properties) {
+                         ImportProperties properties,
+                         SourceArchiveService sourceArchiveService,
+                         ParseTaskPublisherPort parseTaskPublisher,
+                         MqProperties mqProperties) {
         this.urlValidator = urlValidator;
         this.fetcher = fetcher;
         this.zipExtractor = zipExtractor;
@@ -89,6 +98,9 @@ public class ImportService {
         this.fileNodeMapper = fileNodeMapper;
         this.transactionTemplate = transactionTemplate;
         this.properties = properties;
+        this.sourceArchiveService = sourceArchiveService;
+        this.parseTaskPublisher = parseTaskPublisher;
+        this.mqProperties = mqProperties;
     }
 
     /**
@@ -96,11 +108,59 @@ public class ImportService {
      *
      * @throws BizException 地址非法、拉取失败或文件数超限
      */
-    public ImportResult importFromGit(GitImportRequest request) {
-        URI repoUri = urlValidator.validate(request.url());
+    public ImportResult importFromGit(GitImportRequest request, long ownerUserId) {
+        if (Boolean.TRUE.equals(request.async()) && mqProperties.isAsyncImportEnabled()) {
+            return enqueueGitImport(request, ownerUserId);
+        }
+        return importFromGitSync(request, ownerUserId);
+    }
 
-        Project project = createProject(repoUri, request);
+    /** T-206：入队异步 Git 导入，任务保持 PENDING 直至消费者执行。 */
+    public ImportResult enqueueGitImport(GitImportRequest request, long ownerUserId) {
+        URI repoUri = urlValidator.validate(request.url());
+        Project project = createProject(repoUri, request, ownerUserId);
         ImportTask task = createTask(project.getId());
+        parseTaskPublisher.publish(ParseTaskMessage.gitImport(
+                project.getId(),
+                task.getId(),
+                repoUri.toString(),
+                blankToNull(request.branch()),
+                request.exportEnabled() == null || request.exportEnabled()));
+        log.info("异步导入已入队 projectId={} taskId={}", project.getId(), task.getId());
+        return new ImportResult(project.getId(), task.getId(), ImportTaskStatus.PENDING,
+                null, null, 0, 0L, "已入队，等待异步导入");
+    }
+
+    /** 由 {@code cw.parse} 消费者调用。 */
+    public void processAsyncGitImport(ParseTaskMessage message) {
+        Project project = projectMapper.selectById(message.projectId());
+        ImportTask task = importTaskMapper.selectById(message.taskId());
+        if (project == null || task == null) {
+            log.warn("异步导入目标不存在 projectId={} taskId={}", message.projectId(), message.taskId());
+            return;
+        }
+        if (task.getStatus() != ImportTaskStatus.PENDING) {
+            log.info("跳过非 PENDING 任务 taskId={} status={}", task.getId(), task.getStatus());
+            return;
+        }
+        GitImportRequest request = new GitImportRequest(
+                message.url(),
+                message.branch(),
+                project.getName(),
+                message.exportEnabled(),
+                true);
+        importFromGitSyncOnExisting(project, task, request);
+    }
+
+    private ImportResult importFromGitSync(GitImportRequest request, long ownerUserId) {
+        URI repoUri = urlValidator.validate(request.url());
+        Project project = createProject(repoUri, request, ownerUserId);
+        ImportTask task = createTask(project.getId());
+        return importFromGitSyncOnExisting(project, task, request);
+    }
+
+    private ImportResult importFromGitSyncOnExisting(Project project, ImportTask task, GitImportRequest request) {
+        URI repoUri = urlValidator.validate(request.url());
         log.info("开始导入 projectId={} taskId={} url={}", project.getId(), task.getId(), repoUri.getHost());
 
         Path workspace = workspaceOf(project.getId());
@@ -112,6 +172,7 @@ public class ImportService {
 
             transactionTemplate.executeWithoutResult(status ->
                     persistSuccess(project, task, fetched.branch(), fetched.headCommit(), scanned));
+            finalizePostImport(project, task, fetched.workspace(), null);
 
             return new ImportResult(project.getId(), task.getId(), ImportTaskStatus.SUCCESS,
                     fetched.branch(), fetched.headCommit(),
@@ -136,7 +197,7 @@ public class ImportService {
      * @param file 上传的 ZIP
      * @param name 项目显示名；留空则用压缩包文件名
      */
-    public ImportResult importFromZip(MultipartFile file, String name) {
+    public ImportResult importFromZip(MultipartFile file, String name, long ownerUserId) {
         String originalName = file.getOriginalFilename();
         validateArchive(file, originalName);
 
@@ -148,7 +209,7 @@ public class ImportService {
             throw BizException.of(ErrorCode.ARCHIVE_INVALID, "压缩包不可读: " + e.getMessage(), e);
         }
 
-        Project project = createArchiveProject(resolveArchiveName(name, originalName));
+        Project project = createArchiveProject(resolveArchiveName(name, originalName), ownerUserId);
         ImportTask task = createTask(project.getId());
 
         Path workspace = workspaceOf(project.getId());
@@ -164,6 +225,7 @@ public class ImportService {
 
             transactionTemplate.executeWithoutResult(status ->
                     persistSuccess(project, task, null, null, scanned));
+            finalizePostImport(project, task, extracted.targetDir(), archivePath);
 
             log.info("ZIP 导入完成 projectId={} entries={} files={}",
                     project.getId(), extracted.entries(), scanned.fileCount());
@@ -181,29 +243,32 @@ public class ImportService {
 
     // ---- 阶段 1：建项目与任务 ----
 
-    private Project createProject(URI repoUri, GitImportRequest request) {
+    private Project createProject(URI repoUri, GitImportRequest request, long ownerUserId) {
         return transactionTemplate.execute(status -> {
-            Project project = newProject(resolveName(request.name(), repoUri), SourceType.GIT);
+            Project project = newProject(resolveName(request.name(), repoUri), SourceType.GIT, ownerUserId);
             project.setSourceUrl(repoUri.toString());
             project.setDefaultBranch(blankToNull(request.branch()));
+            project.setExportEnabled(request.exportEnabled() == null || request.exportEnabled());
             projectMapper.insert(project);
             return project;
         });
     }
 
-    private Project createArchiveProject(String name) {
+    private Project createArchiveProject(String name, long ownerUserId) {
         return transactionTemplate.execute(status -> {
-            Project project = newProject(name, SourceType.ZIP);
+            Project project = newProject(name, SourceType.ZIP, ownerUserId);
+            project.setExportEnabled(true);
             projectMapper.insert(project);
             return project;
         });
     }
 
     /** 建项目实体。{@code storage_prefix} 是 NOT NULL，故在插入前就填好。 */
-    private static Project newProject(String name, SourceType sourceType) {
+    private static Project newProject(String name, SourceType sourceType, long ownerUserId) {
         Project project = new Project();
         project.setName(name);
         project.setSourceType(sourceType);
+        project.setOwnerUserId(ownerUserId > 0L ? ownerUserId : null);
         project.setStatus(ProjectStatus.IMPORTING);
         project.setStorageBucket("cw-source");
         // 用 UUID 而非自增 id 拼前缀：id 要等插入后才知道，而 storage_prefix 是 NOT NULL，
@@ -294,6 +359,14 @@ public class ImportService {
             queue.addAll(node.children());
         }
         log.debug("文件树落库完成 projectId={} nodes={}", projectId, pathToId.size());
+    }
+
+    private void finalizePostImport(Project project,
+                                    ImportTask task,
+                                    Path workspace,
+                                    Path originalZip) {
+        sourceArchiveService.archiveProjectSource(project, workspace, originalZip);
+        parseTaskPublisher.publish(ParseTaskMessage.parseNotify(project.getId(), task.getId()));
     }
 
     private ImportResult fail(Project project, ImportTask task, ErrorCode errorCode, String message) {

@@ -30,6 +30,12 @@ public class Project {
     /** 仓库地址；{@link SourceType#ZIP} / {@link SourceType#FILES} 时为空。 */
     private String sourceUrl;
 
+    /** 创建者；新导入必填，历史数据可为 null（任意登录用户可访问）。 */
+    private Long ownerUserId;
+
+    /** 是否允许 ZIP 导出（Git 导入时可由用户关闭）。 */
+    private Boolean exportEnabled;
+
     /** 默认分支，仅 Git 导入有值。 */
     private String defaultBranch;
 

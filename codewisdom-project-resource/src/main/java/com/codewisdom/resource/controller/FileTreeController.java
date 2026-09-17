@@ -3,9 +3,14 @@ package com.codewisdom.resource.controller;
 import com.codewisdom.common.api.ErrorCode;
 import com.codewisdom.common.api.R;
 import com.codewisdom.common.exception.BizException;
+import com.codewisdom.resource.auth.AuthContext;
 import com.codewisdom.resource.dto.FileTreeNode;
 import com.codewisdom.resource.dto.FileTreeStats;
+import com.codewisdom.resource.dto.ProjectListItemView;
+import com.codewisdom.resource.dto.ProjectMetaView;
 import com.codewisdom.resource.service.FileTreeService;
+import com.codewisdom.resource.service.ProjectQueryService;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -20,9 +25,22 @@ import org.springframework.web.bind.annotation.RestController;
 public class FileTreeController {
 
     private final FileTreeService fileTreeService;
+    private final ProjectQueryService projectQueryService;
 
-    public FileTreeController(FileTreeService fileTreeService) {
+    public FileTreeController(FileTreeService fileTreeService,
+                              ProjectQueryService projectQueryService) {
         this.fileTreeService = fileTreeService;
+        this.projectQueryService = projectQueryService;
+    }
+
+    @GetMapping
+    public R<java.util.List<ProjectListItemView>> list(HttpServletRequest request) {
+        return R.ok(projectQueryService.listForUser(AuthContext.requireUserId(request)));
+    }
+
+    @GetMapping("/{projectId}")
+    public R<ProjectMetaView> meta(@PathVariable Long projectId, HttpServletRequest request) {
+        return R.ok(projectQueryService.meta(projectId, AuthContext.requireUserId(request)));
     }
 
     /**
@@ -35,15 +53,17 @@ public class FileTreeController {
     @GetMapping("/{projectId}/tree")
     public R<FileTreeNode> tree(@PathVariable Long projectId,
                                 @RequestParam(required = false) String path,
-                                @RequestParam(required = false) Integer depth) {
+                                @RequestParam(required = false) Integer depth,
+                                HttpServletRequest request) {
         if (depth != null && depth < 1) {
             throw BizException.of(ErrorCode.BAD_REQUEST, "depth 必须大于 0");
         }
+        long userId = AuthContext.requireUserId(request);
+        projectQueryService.requireReadyProject(projectId, userId);
 
         if (path == null || path.isBlank()) {
             return R.ok(fileTreeService.buildTree(projectId, depth));
         }
-        // 指定路径时忽略 depth 之外的语义差异：子树本身已是一次有界展开
         return R.ok(fileTreeService.findSubtree(projectId, path));
     }
 
@@ -51,7 +71,9 @@ public class FileTreeController {
      * 文件树分类统计：按分类、语言、目录层级汇总。
      */
     @GetMapping("/{projectId}/stats")
-    public R<FileTreeStats> stats(@PathVariable Long projectId) {
+    public R<FileTreeStats> stats(@PathVariable Long projectId, HttpServletRequest request) {
+        long userId = AuthContext.requireUserId(request);
+        projectQueryService.requireReadyProject(projectId, userId);
         return R.ok(fileTreeService.stats(projectId));
     }
 }

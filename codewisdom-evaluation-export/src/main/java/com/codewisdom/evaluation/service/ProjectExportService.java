@@ -1,5 +1,7 @@
 package com.codewisdom.evaluation.service;
 
+import com.codewisdom.common.api.ErrorCode;
+import com.codewisdom.common.exception.BizException;
 import com.codewisdom.evaluation.storage.ExportStorage.Store;
 
 import java.io.ByteArrayOutputStream;
@@ -38,6 +40,32 @@ public class ProjectExportService {
         store.put(EXPORT_BUCKET, objectKey, zipBytes);
 
         return new ExportResult(projectId, EXPORT_BUCKET, objectKey, zipBytes.length);
+    }
+
+    public ExportResult exportFromWorkspace(long projectId, Path workspaceRoot) {
+        Path sourceRoot = resolveProjectRoot(workspaceRoot, projectId);
+        if (!Files.isDirectory(sourceRoot)) {
+            throw BizException.of(ErrorCode.NOT_FOUND, "项目工作区不存在: " + projectId);
+        }
+        return exportProject(projectId, sourceRoot);
+    }
+
+    public byte[] downloadExport(long projectId, String objectKey) {
+        String prefix = "project-" + projectId + "/";
+        if (objectKey == null || !objectKey.startsWith(prefix) || objectKey.contains("..")) {
+            throw BizException.of(ErrorCode.FORBIDDEN, "无权下载该导出对象");
+        }
+        return store.get(EXPORT_BUCKET, objectKey).orElseThrow(
+                () -> BizException.of(ErrorCode.NOT_FOUND, "导出对象不存在"));
+    }
+
+    public static Path resolveProjectRoot(Path workspaceRoot, long projectId) {
+        Path workspace = workspaceRoot.resolve(String.valueOf(projectId));
+        Path repoDir = workspace.resolve("repo");
+        if (Files.isDirectory(repoDir)) {
+            return repoDir;
+        }
+        return workspace;
     }
 
     /** 解压已存储的 ZIP，用于验收「内容与源一致」。 */

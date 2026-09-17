@@ -6,6 +6,10 @@ spring:
     name: codewisdom-project-resource
   profiles:
     active: local
+  cloud:
+    nacos:
+      discovery:
+        enabled: false
   servlet:
     multipart:
       # Boot 默认单文件上限仅 1MB，源码压缩包远超此值

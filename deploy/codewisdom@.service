@@ -43,6 +43,8 @@ EnvironmentFile=/opt/codewisdom/.env
 # 建表脚本根本没执行 —— 现象是服务起得来、但一调用就报 `Table 'xxx' doesn't exist`。
 # 这里用环境变量兜底：即使 jar 里的配置漏了，也能保证迁移会执行。
 Environment=SPRING_FLYWAY_BASELINE_VERSION=0
+# 默认 local：网关静态路由即可跑通；Nacos 注册需 .env 中配置 CW_NACOS_USERNAME/PASSWORD 后再改为 local,nacos
+Environment=SPRING_PROFILES_ACTIVE=local
 
 # 内存按实测给的：单服务空闲约 220M。Xmx 给 256M 是留了余量，
 # 限得比实测还低会让 JVM 频繁 Full GC 甚至 OOM。

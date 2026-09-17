@@ -2,6 +2,7 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { FolderOpened, Lock, UserFilled } from '@element-plus/icons-vue'
 import { register } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
 
@@ -37,6 +38,7 @@ async function onSubmit() {
       username: data.username,
       nickname: data.nickname,
     })
+    auth.markOnboardingForNewUser()
     ElMessage.success('注册成功，已自动登录')
     await router.replace('/import')
   } catch (e) {
@@ -48,21 +50,53 @@ async function onSubmit() {
 </script>
 
 <template>
-  <div class="auth-page">
-    <div class="auth-card">
-      <div class="auth-head">
-        <h1>创建账号</h1>
-        <p>注册后即可导入 Git / ZIP 项目，接入线上网关</p>
+  <div class="auth-shell">
+    <div class="auth-brand">
+      <div class="auth-brand__logo">
+        <div class="auth-brand__mark">CW</div>
+        <span class="section-label">Join the Platform</span>
       </div>
+      <h1 class="gradient-text">开启你的代码治理之旅</h1>
+      <p class="auth-brand__desc">
+        注册账号后即可导入 Git / ZIP 项目，接入线上分析管线，体验完整的智能体工作流。
+      </p>
+      <ul class="auth-features">
+        <li>
+          <div class="auth-features__icon"><el-icon><UserFilled /></el-icon></div>
+          <div>
+            <div class="auth-features__title">独立账号空间</div>
+            <div class="auth-features__sub">安全令牌鉴权，会话本地加密存储</div>
+          </div>
+        </li>
+        <li>
+          <div class="auth-features__icon"><el-icon><FolderOpened /></el-icon></div>
+          <div>
+            <div class="auth-features__title">一键项目导入</div>
+            <div class="auth-features__sub">支持 Git 克隆与 ZIP 解压，自动构建文件树</div>
+          </div>
+        </li>
+        <li>
+          <div class="auth-features__icon"><el-icon><Lock /></el-icon></div>
+          <div>
+            <div class="auth-features__title">BCrypt 密码保护</div>
+            <div class="auth-features__sub">服务端哈希存储，传输经 HTTPS 网关</div>
+          </div>
+        </li>
+      </ul>
+    </div>
+
+    <div class="auth-form-panel glass-panel glass-panel--glow">
+      <h2>创建账号</h2>
+      <p class="auth-form-panel__sub">填写信息完成注册，系统将自动登录</p>
       <el-form label-position="top" @submit.prevent="onSubmit">
         <el-form-item label="用户名">
-          <el-input v-model="form.username" autocomplete="username" placeholder="字母、数字、下划线" />
+          <el-input v-model="form.username" autocomplete="username" placeholder="字母、数字、下划线" size="large" />
         </el-form-item>
         <el-form-item label="昵称（可选）">
-          <el-input v-model="form.nickname" autocomplete="nickname" placeholder="展示名称" />
+          <el-input v-model="form.nickname" autocomplete="nickname" placeholder="控制台展示名称" size="large" />
         </el-form-item>
         <el-form-item label="密码">
-          <el-input v-model="form.password" type="password" show-password autocomplete="new-password" />
+          <el-input v-model="form.password" type="password" show-password autocomplete="new-password" size="large" />
         </el-form-item>
         <el-form-item label="确认密码">
           <el-input
@@ -70,59 +104,18 @@ async function onSubmit() {
             type="password"
             show-password
             autocomplete="new-password"
+            size="large"
             @keyup.enter="onSubmit"
           />
         </el-form-item>
-        <el-button type="primary" class="submit" :loading="loading" @click="onSubmit">注册</el-button>
+        <el-button type="primary" class="submit" size="large" :loading="loading" @click="onSubmit">
+          注册并进入
+        </el-button>
       </el-form>
-      <p class="foot">
+      <p class="auth-foot">
         已有账号？
         <router-link to="/login">去登录</router-link>
       </p>
     </div>
   </div>
 </template>
-
-<style scoped>
-.auth-page {
-  min-height: calc(100vh - 56px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 32px 16px;
-  background: linear-gradient(135deg, #eef2ff 0%, #f5f7fa 45%, #e8f4ff 100%);
-}
-.auth-card {
-  width: 100%;
-  max-width: 420px;
-  background: #fff;
-  border-radius: 16px;
-  padding: 32px 28px 24px;
-  box-shadow: 0 12px 40px rgba(15, 23, 42, 0.08);
-  border: 1px solid #ebeef5;
-}
-.auth-head h1 {
-  margin: 0 0 8px;
-  font-size: 24px;
-  color: #1f2937;
-}
-.auth-head p {
-  margin: 0 0 24px;
-  color: #6b7280;
-  font-size: 14px;
-}
-.submit {
-  width: 100%;
-  margin-top: 8px;
-}
-.foot {
-  margin: 20px 0 0;
-  text-align: center;
-  color: #6b7280;
-  font-size: 14px;
-}
-.foot a {
-  color: #409eff;
-  font-weight: 500;
-}
-</style>

@@ -11,6 +11,17 @@ spring:
     baseline-version: 0
     table: flyway_schema_history_evaluation_export
 
+codewisdom:
+  workspace:
+    root: ${CW_WORKSPACE_ROOT:./data/repos}
+  downstream:
+    code-analysis-base-url: ${CW_CODE_ANALYSIS_URL:http://127.0.0.1:8082}
+  minio:
+    enabled: true
+    endpoint: ${CW_MINIO_ENDPOINT:http://127.0.0.1:9000}
+    access-key: ${CW_MINIO_USER:codewisdom}
+    secret-key: ${CW_MINIO_PASSWORD:codewisdom123}
+
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true

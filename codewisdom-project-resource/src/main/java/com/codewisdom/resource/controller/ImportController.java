@@ -1,9 +1,11 @@
 package com.codewisdom.resource.controller;
 
 import com.codewisdom.common.api.R;
+import com.codewisdom.resource.auth.AuthContext;
 import com.codewisdom.resource.dto.GitImportRequest;
 import com.codewisdom.resource.dto.ImportResult;
 import com.codewisdom.resource.service.ImportService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,8 +36,10 @@ public class ImportController {
      * 大仓库改异步（T-206，需 RabbitMQ）后本接口改为返回任务 id 并立即返回。
      */
     @PostMapping("/git")
-    public R<ImportResult> importFromGit(@Valid @RequestBody GitImportRequest request) {
-        return R.ok(importService.importFromGit(request));
+    public R<ImportResult> importFromGit(@Valid @RequestBody GitImportRequest request,
+                                         HttpServletRequest httpRequest) {
+        long userId = AuthContext.requireUserId(httpRequest);
+        return R.ok(importService.importFromGit(request, userId));
     }
 
     /**
@@ -49,7 +53,9 @@ public class ImportController {
      */
     @PostMapping(value = "/zip", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public R<ImportResult> importFromZip(@RequestPart("file") MultipartFile file,
-                                         @RequestParam(value = "name", required = false) String name) {
-        return R.ok(importService.importFromZip(file, name));
+                                         @RequestParam(value = "name", required = false) String name,
+                                         HttpServletRequest httpRequest) {
+        long userId = AuthContext.requireUserId(httpRequest);
+        return R.ok(importService.importFromZip(file, name, userId));
     }
 }

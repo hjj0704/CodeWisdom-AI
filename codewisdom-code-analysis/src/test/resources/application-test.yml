@@ -19,3 +19,8 @@ spring:
 mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
+
+codewisdom:
+  parse-cache:
+    redis-enabled: false
+    parallelism: 4

@@ -24,3 +24,18 @@ spring:
     # 会报「版本重复 / 校验和不匹配」——所以每个服务一个历史表。
     # （2026-09-16 T-105 加入 code-analysis 时发现并隔离；新增服务时照抄换后缀。）
     table: flyway_schema_history_project_resource
+  rabbitmq:
+    host: ${CW_RABBITMQ_HOST:127.0.0.1}
+    port: ${CW_RABBITMQ_PORT:5672}
+    username: ${CW_RABBITMQ_USER:codewisdom}
+    password: ${CW_RABBITMQ_PASSWORD:codewisdom123}
+
+codewisdom:
+  minio:
+    enabled: true
+    endpoint: ${CW_MINIO_ENDPOINT:http://127.0.0.1:9000}
+    access-key: ${CW_MINIO_USER:codewisdom}
+    secret-key: ${CW_MINIO_PASSWORD:codewisdom123}
+  mq:
+    enabled: true
+    async-import-enabled: true

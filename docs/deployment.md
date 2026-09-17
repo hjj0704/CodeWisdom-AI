@@ -145,8 +145,14 @@ cp .env.example .env
 echo -n "codewisdom-$(openssl rand -hex 24)" | base64 -w0; echo
 
 vi .env      # 把模板里所有「改成你自己的」都改掉，Nacos 那行粘上刚生成的
-chmod 600 .env
+chown root:codewisdom .env
+chmod 640 .env
 ```
+
+> ⚠️ **不要用 `chmod 600`**：Java 进程以 `codewisdom` 用户运行，而 `agent-orchestration`
+> 的 `application-local.yml` 会通过 `spring.config.import` 读取 `/opt/codewisdom/.env`。
+> 文件仅 root 可读时会报 `FileNotFoundException: .env (Permission denied)` 并反复重启。
+> systemd 的 `EnvironmentFile` 由 root 预加载，**不能**替代 Spring 这次读文件。
 
 > ⚠️ **Nacos 3.x 强制要求 `NACOS_AUTH_TOKEN`**，不配会 `exit 255` 崩溃重启。
 > 只给 `MODE: standalone` 不够——这是 3.x 相对 2.x 的行为变化。
@@ -336,6 +342,7 @@ sudo systemctl restart codewisdom@code-analysis
 | rabbitmq 容器反复重启，日志 `deprecated environment variables detected` | 用了 `RABBITMQ_*` 配置类环境变量，3.13 起**已弃用且致命** | 改用挂 `rabbitmq.conf`；**别误判成内存不足** |
 | nacos 容器偶发被 OOM-Kill | `mem_limit` 太贴近实测值 | 实测 752M/768M 时给 1g。**「限额大于 Xmx」是不够的**，堆外还有 Metaspace/线程栈/direct buffer |
 | 探网关 `/ping` 返回 404 | 网关是**纯路由器**，没有 controller | 走路由探：`/api/<服务名>/ping` |
+| `agent-orchestration` 反复重启，日志 `Permission denied` 读 `.env` | `.env` 是 `600 root:root`，Spring 以 `codewisdom` 读失败 | `chown root:codewisdom /opt/codewisdom/.env && chmod 640 /opt/codewisdom/.env` |
 
 ---
 

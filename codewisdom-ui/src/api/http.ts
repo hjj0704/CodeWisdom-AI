@@ -27,12 +27,16 @@ http.interceptors.response.use(
   (response) => response,
   (error) => {
     const code = error.response?.data?.code
+    const message = error.response?.data?.message
     if (code === 40100) {
       const auth = useAuthStore()
       auth.logout()
       if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
         window.location.assign('/login?redirect=' + encodeURIComponent(window.location.pathname))
       }
+    }
+    if (message) {
+      return Promise.reject(new Error(message))
     }
     return Promise.reject(error)
   },

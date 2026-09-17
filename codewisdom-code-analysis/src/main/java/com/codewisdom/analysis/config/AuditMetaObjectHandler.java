@@ -27,9 +27,9 @@ public class AuditMetaObjectHandler implements MetaObjectHandler {
 
     @Override
     public void insertFill(MetaObject metaObject) {
-        // 审计问题表没有 updatedAt——问题一旦记录就不该被改写
-        strictInsertFill(metaObject, "createdAt", LocalDateTime.class,
-                LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS));
+        LocalDateTime now = LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
+        strictInsertFill(metaObject, "createdAt", LocalDateTime.class, now);
+        strictInsertFill(metaObject, "updatedAt", LocalDateTime.class, now);
     }
 
     /**
@@ -45,6 +45,7 @@ public class AuditMetaObjectHandler implements MetaObjectHandler {
      */
     @Override
     public void updateFill(MetaObject metaObject) {
-        // 有意为空，见方法注释
+        strictUpdateFill(metaObject, "updatedAt", LocalDateTime.class,
+                LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS));
     }
 }

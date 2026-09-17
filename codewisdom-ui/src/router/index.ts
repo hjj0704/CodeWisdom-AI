@@ -1,16 +1,40 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '../stores/auth'
-import ImportView from '../views/ImportView.vue'
-import LoginView from '../views/LoginView.vue'
-import RegisterView from '../views/RegisterView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/login', name: 'login', component: LoginView, meta: { guest: true } },
-    { path: '/register', name: 'register', component: RegisterView, meta: { guest: true } },
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('../views/LoginView.vue'),
+      meta: { guest: true },
+    },
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('../views/RegisterView.vue'),
+      meta: { guest: true },
+    },
     { path: '/', redirect: '/import' },
-    { path: '/import', name: 'import', component: ImportView, meta: { requiresAuth: true } },
+    {
+      path: '/import',
+      name: 'import',
+      component: () => import('../views/ImportView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/help',
+      name: 'help',
+      component: () => import('../views/HelpView.vue'),
+      meta: { requiresAuth: true },
+    },
+    {
+      path: '/projects/:projectId',
+      name: 'project-workbench',
+      component: () => import('../views/ProjectWorkbench.vue'),
+      meta: { requiresAuth: true },
+    },
   ],
 })
 

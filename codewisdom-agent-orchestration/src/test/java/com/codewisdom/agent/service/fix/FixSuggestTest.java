@@ -48,4 +48,31 @@ class FixSuggestTest {
         assertThat(result.suggestions().get(0).rationale()).contains("NPE");
         assertThat(result.suggestions().get(0).suggestion()).contains("equals");
     }
+
+    @Test
+    @DisplayName("LLM 不可用时用规则模板兜底")
+    void fallsBackToTemplateWhenLlmUnavailable() {
+        FixSuggestGenerator generator = new FixSuggestGenerator(
+                new LlmClient(new MockLlmProvider("mock", "not-json"), new FallbackLlmProvider("fb"),
+                        LlmClientProperties.defaults()),
+                DocGenProperties.on());
+
+        FixTargetIssue medium = new FixTargetIssue(
+                "CW-EX-001", "Demo.java", 5, "空 catch 块", "应记录或抛出", RiskLevel.MEDIUM);
+
+        FixSuggestResult result = generator.suggest(List.of(medium));
+
+        assertThat(result.suggestions()).hasSize(1);
+        assertThat(result.suggestions().get(0).suggestion()).contains("Demo.java:5");
+    }
+
+    @Test
+    @DisplayName("可从 Markdown 围栏中提取 JSON")
+    void extractsJsonFromMarkdownFence() {
+        assertThat(FixSuggestGenerator.extractJsonArray("""
+                ```json
+                [{"issueKey":"a|b|1","suggestion":"x","rationale":"y"}]
+                ```
+                """)).contains("\"issueKey\"");
+    }
 }

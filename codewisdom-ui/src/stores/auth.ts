@@ -1,8 +1,15 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import {
+  completeOnboarding,
+  isOnboardingPending,
+  markOnboardingForNewUser,
+} from '../utils/onboarding'
 
 const TOKEN_KEY = 'cw_token'
 const PROFILE_KEY = 'cw_profile'
+
+export { isOnboardingPending, markOnboardingForNewUser, completeOnboarding }
 
 export interface AuthProfile {
   userId: number
@@ -40,5 +47,5 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(PROFILE_KEY)
   }
 
-  return { token, profile, isLoggedIn, setSession, logout }
+  return { token, profile, isLoggedIn, setSession, logout, markOnboardingForNewUser, completeOnboarding }
 })

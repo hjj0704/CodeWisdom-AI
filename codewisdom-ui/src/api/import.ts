@@ -15,6 +15,8 @@ export interface GitImportPayload {
   url: string
   branch?: string
   name?: string
+  /** Git 导入是否允许后续 ZIP 导出，默认 true */
+  exportEnabled?: boolean
 }
 
 export function importFromGit(payload: GitImportPayload) {
