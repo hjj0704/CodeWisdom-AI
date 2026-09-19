@@ -2,6 +2,7 @@ const NEW_USER_KEY = 'cw_onboarding_new_user'
 const IMPORT_DONE_KEY = 'cw_onboarding_import_done'
 const WORKBENCH_DONE_KEY = 'cw_onboarding_workbench_done'
 const ALL_DONE_KEY = 'cw_onboarding_v1_done'
+const GUEST_IMPORT_DONE_KEY = 'cw_guest_import_tour_done'
 
 export function markOnboardingForNewUser() {
   localStorage.setItem(NEW_USER_KEY, '1')
@@ -52,4 +53,13 @@ export function completeOnboarding() {
 
 export function isOnboardingPending(): boolean {
   return isImportTourPending() || isWorkbenchTourPending()
+}
+
+/** 未登录访客在导入页的首次引导 */
+export function isGuestImportTourPending(): boolean {
+  return localStorage.getItem(GUEST_IMPORT_DONE_KEY) !== '1'
+}
+
+export function completeGuestImportTour() {
+  localStorage.setItem(GUEST_IMPORT_DONE_KEY, '1')
 }

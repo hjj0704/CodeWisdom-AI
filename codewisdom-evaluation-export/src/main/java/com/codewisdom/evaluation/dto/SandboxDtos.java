@@ -45,4 +45,13 @@ public final class SandboxDtos {
             String message
     ) {
     }
+
+    public record DemoLinkView(
+            boolean found,
+            String url,
+            String label,
+            String sourceFile,
+            String message
+    ) {
+    }
 }

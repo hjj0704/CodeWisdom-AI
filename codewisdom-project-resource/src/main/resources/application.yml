@@ -47,7 +47,7 @@ codewisdom:
     max-files: 20000
     clone-timeout-seconds: 180
     clone-depth: 1
-    workspace-root: ./data/repos
+    workspace-root: ${CW_WORKSPACE_ROOT:./data/repos}
 
 logging:
   pattern:

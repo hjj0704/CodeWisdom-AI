@@ -16,9 +16,38 @@ export interface ChatMessage {
   createdAt: string
 }
 
+export interface ClarifyOption {
+  id: string
+  label: string
+}
+
+export interface AgentAction {
+  type: string
+  scope?: string
+  summary: string
+  requiresConfirmation: boolean
+  filePath?: string | null
+  symbol?: string | null
+  line?: number | null
+  clarifyQuestion?: string | null
+  options?: ClarifyOption[] | null
+}
+
+export interface WorkbenchContext {
+  filePath?: string
+  selectionStartLine?: number
+  selectionEndLine?: number
+  viewportStartLine?: number
+  viewportEndLine?: number
+  selectionSnippet?: string
+  fileContent?: string
+  javaFilePaths?: string[]
+}
+
 export interface ChatReply {
   userMessage: ChatMessage
   assistantMessage: ChatMessage
+  actions?: AgentAction[]
 }
 
 export function listSessions(projectId: number) {
@@ -43,11 +72,11 @@ export function listMessages(sessionId: number) {
   })
 }
 
-export function sendChat(sessionId: number, content: string) {
+export function sendChat(sessionId: number, content: string, workbench?: WorkbenchContext) {
   return request<ChatReply>({
     url: `/agent-orchestration/sessions/${sessionId}/chat`,
     method: 'POST',
-    data: { content },
+    data: { content, workbench },
   })
 }
 

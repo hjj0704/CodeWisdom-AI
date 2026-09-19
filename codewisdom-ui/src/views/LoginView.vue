@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import { Connection, Cpu, DataAnalysis } from '@element-plus/icons-vue'
 import { login } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
+import BrandMark from '../components/BrandMark.vue'
 
 const router = useRouter()
 const route = useRoute()
@@ -47,41 +48,44 @@ async function onSubmit() {
   <div class="auth-shell">
     <div class="auth-brand">
       <div class="auth-brand__logo">
-        <div class="auth-brand__mark">CW</div>
+        <BrandMark :size="48" class="auth-brand__mark" />
         <span class="section-label">Secure Access</span>
       </div>
-      <h1 class="gradient-text">下一代代码智能治理平台</h1>
+      <h1 class="gradient-text">登录后即可导入项目</h1>
       <p class="auth-brand__desc">
-        基于多智能体编排，串联静态分析、自动修复与量化评测，让代码质量可观测、可迭代。
+        账号用来区分「你的项目」和别人的项目。登录后可以导入代码、在线查看和检查问题。
       </p>
       <ul class="auth-features">
         <li>
           <div class="auth-features__icon"><el-icon><Connection /></el-icon></div>
           <div>
-            <div class="auth-features__title">云端网关直连</div>
-            <div class="auth-features__sub">本地仅跑前端，API 经 ECS 微服务集群</div>
+            <div class="auth-features__title">代码只属于你</div>
+            <div class="auth-features__sub">导入内容保存在你的账号下，不会对外公开</div>
           </div>
         </li>
         <li>
           <div class="auth-features__icon"><el-icon><Cpu /></el-icon></div>
           <div>
-            <div class="auth-features__title">多智能体编排</div>
-            <div class="auth-features__sub">注释生成 · 修复建议 · 人工复核闭环</div>
+            <div class="auth-features__title">不会窃取源码</div>
+            <div class="auth-features__sub">仅用于你在本平台上的查看与分析，不用于对外模型训练</div>
           </div>
         </li>
         <li>
           <div class="auth-features__icon"><el-icon><DataAnalysis /></el-icon></div>
           <div>
-            <div class="auth-features__title">量化评测导出</div>
-            <div class="auth-features__sub">指标追踪与错误溯源，支撑持续迭代</div>
+            <div class="auth-features__title">改完要你确认</div>
+            <div class="auth-features__sub">AI 或系统的修改建议，都需要你点头后才写入文件</div>
           </div>
         </li>
       </ul>
     </div>
 
     <div class="auth-form-panel glass-panel glass-panel--glow">
-      <h2>欢迎回来</h2>
-      <p class="auth-form-panel__sub">登录以继续管理项目导入与治理流程</p>
+      <h2>登录</h2>
+      <p v-if="route.query.reason" class="auth-form-panel__sub">
+        导入或打开项目需要登录。登录后会回到你刚才的页面。
+      </p>
+      <p v-else class="auth-form-panel__sub">已有账号请直接登录；没有账号可先注册。</p>
       <el-form label-position="top" @submit.prevent="onSubmit">
         <el-form-item label="用户名">
           <el-input v-model="form.username" autocomplete="username" placeholder="3~32 位字母数字" size="large" />
@@ -98,7 +102,7 @@ async function onSubmit() {
           />
         </el-form-item>
         <el-button type="primary" class="submit" size="large" :loading="loading" @click="onSubmit">
-          进入控制台
+          登录
         </el-button>
       </el-form>
       <p class="auth-foot">

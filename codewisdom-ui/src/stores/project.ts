@@ -33,6 +33,9 @@ export const useProjectStore = defineStore('project', () => {
 
   function setImportResult(result: ImportResult, name?: string) {
     lastImport.value = result
+    if (result.status !== 'SUCCESS') {
+      return
+    }
     currentProjectId.value = result.projectId
     const entry: RecentProject = {
       projectId: result.projectId,

@@ -25,15 +25,25 @@ public class AuditIssuePersistenceService {
         for (AuditIssue issue : issues) {
             AuditIssueEntity row = new AuditIssueEntity();
             row.setProjectId(projectId);
-            row.setRuleId(issue.ruleId());
+            row.setRuleId(clip(issue.ruleId(), 64));
             row.setCategory(issue.category().name());
             row.setRiskLevel(issue.riskLevel().name());
-            row.setFilePath(issue.filePath());
+            row.setFilePath(clip(issue.filePath(), 1024));
             row.setLineNo(issue.line());
-            row.setDescription(issue.description());
-            row.setTriggerSnippet(issue.trigger());
-            row.setRiskDescription(issue.riskDescription());
+            row.setDescription(clip(issue.description(), 512));
+            row.setTriggerSnippet(clip(issue.trigger(), 1024));
+            row.setRiskDescription(clip(issue.riskDescription(), 1024));
             auditIssueMapper.insert(row);
         }
+    }
+
+    private static String clip(String value, int maxLen) {
+        if (value == null) {
+            return "";
+        }
+        if (value.length() <= maxLen) {
+            return value;
+        }
+        return value.substring(0, maxLen);
     }
 }

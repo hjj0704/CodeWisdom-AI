@@ -5,9 +5,11 @@ import com.codewisdom.agent.client.ProjectResourceClient;
 import com.codewisdom.agent.client.llm.LlmClient;
 import com.codewisdom.agent.client.llm.LlmModels.CallResult;
 import com.codewisdom.agent.client.llm.LlmModels.Request;
+import com.codewisdom.agent.dto.AgentActionView;
 import com.codewisdom.agent.dto.ChatMessageView;
 import com.codewisdom.agent.dto.ChatReplyView;
 import com.codewisdom.agent.dto.ChatSessionView;
+import com.codewisdom.agent.dto.WorkbenchContextDto;
 import com.codewisdom.agent.entity.ChatMessageEntity;
 import com.codewisdom.agent.entity.ChatSessionEntity;
 import com.codewisdom.agent.mapper.ChatMessageMapper;
@@ -17,45 +19,53 @@ import com.codewisdom.common.exception.BizException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 public class ChatService {
 
     private static final String ONBOARD_PROMPT = """
-            你是 CodeWisdom AI 的项目分析助手。必须先阅读提供的文档摘录，再结合统计与源码判断项目定位。
-            用通俗中文回答，总字数不超过 320 字，分 5 小段，每段 1~2 行：
-            ① 定位：这是什么（游戏类型/行业工具/开源库/后台系统等，尽量具体）
-            ② 用途：解决什么问题、给谁用
-            ③ 技术：主要语言与框架
-            ④ 结构：目录/模块怎么组织
-            ⑤ 建议：优先改进的 2 点
-            不要编造文档里没有的功能；不确定时用「可能」「推测」并说明依据。
+            你是资深代码分析师。用户已在工作台看到项目名称、文件数、体积等，不要复述这些基础信息。
+            请阅读文档与源码抽样，用口语化中文给出「页面上看不出的」判断：
+            项目在做什么、技术栈要点、最值得优先关注的 1~2 个风险或改进点。
+            总共 3~5 句、不超过 180 字；不要编号分段、不要 Markdown 标题、不要套话开场。
+            不确定用「可能」并说明依据；不要编造仓库里不存在的文件或功能。
             """;
 
     private static final String CHAT_PROMPT = """
-            你是 CodeWisdom 工作台里的项目助手，可结合上下文中的文档、统计、源码与对话历史回答问题。
-            规则：
-            1. 用户问项目定位/技术/结构/风险：结合上下文简要回答，中文，条理清晰。
-            2. 用户问如何修复、改哪行代码：必须给出可执行的改法；若提供替换代码，用 ```java 代码块``` 包裹修改后的完整行或片段，并 1~2 句说明。
-            3. 用户问与项目无关的通用问题：先简要回答；若无法回答，说明你是项目助手并建议查看帮助文档。
-            4. 不要编造仓库里不存在的文件或功能；不确定时明确说明。
-            5. 不要每次都强行输出五段式项目介绍；仅在一键分析或用户明确要「介绍项目」时用五段式。
+            你是企业级代码工作台 Agent：理解意图 → 分析 → 提议可执行操作（由用户确认后才生效，不自动改仓库/不自动跳转）。
+            - 结合文档、统计、源码、工作台上下文（含 Java 文件列表节选）与对话历史作答。
+            - 默认 2~6 句说明；修代码用 ```java``` 给出片段。
+            - 需求不明确（找不到符号、多个同名、不知范围）时：先简短说明，并在末尾输出 CLARIFY，给出 2~4 个可点选选项。
+            - 用户要找方法/类/文件位置时：根据上下文判断 filePath 与 symbol，输出 NAVIGATE（用户确认后工作台跳转）。
+            - 用户要加 Javadoc 且当前为 Java 文件时：输出 JAVADOC。
+            - 在回复正文后单独一行输出（正文勿提及该行），最多 2 条 action：
+            AGENT_ACTIONS_JSON:[...]
+            类型与字段：
+            1) {"type":"NAVIGATE","symbol":"方法或类名","filePath":"可选，来自文件列表","line":可选行号,"summary":"不超过40字"}
+            2) {"type":"JAVADOC","scope":"file|viewport|selection","summary":"..."}
+            3) {"type":"CLARIFY","clarifyQuestion":"反问句","options":[{"id":"a","label":"选项文案"},...]}
+            白名单仅以上三类；禁止删除文件、执行命令、改依赖。不编造路径或符号；不确定用 CLARIFY 或说明依据。
             """;
 
     private final ChatSessionMapper sessionMapper;
     private final ChatMessageMapper messageMapper;
     private final LlmClient llmClient;
     private final ProjectResourceClient projectResourceClient;
+    private final AgentActionParser agentActionParser;
 
     public ChatService(ChatSessionMapper sessionMapper,
                        ChatMessageMapper messageMapper,
                        LlmClient llmClient,
-                       ProjectResourceClient projectResourceClient) {
+                       ProjectResourceClient projectResourceClient,
+                       AgentActionParser agentActionParser) {
         this.sessionMapper = sessionMapper;
         this.messageMapper = messageMapper;
         this.llmClient = llmClient;
         this.projectResourceClient = projectResourceClient;
+        this.agentActionParser = agentActionParser;
     }
 
     public List<ChatSessionView> listSessions(long projectId) {
@@ -96,22 +106,26 @@ public class ChatService {
     }
 
     @Transactional
-    public ChatReplyView chat(long sessionId, String content, String authorizationHeader) {
+    public ChatReplyView chat(long sessionId, String content, WorkbenchContextDto workbench,
+                              String authorizationHeader) {
         ChatSessionEntity session = requireSession(sessionId);
         String context = buildContext(session.getProjectId(), sessionId, authorizationHeader, 8);
-        String prompt = context + "\n\n用户问题：\n" + content;
-        String answer = callLlm(prompt, CHAT_PROMPT);
+        String workbenchBlock = formatWorkbenchContext(workbench);
+        String prompt = context + workbenchBlock + "\n\n用户问题：\n" + content;
+        String rawAnswer = callLlm(prompt, CHAT_PROMPT);
+        AgentActionParser.ParseResult parsed = agentActionParser.parse(rawAnswer);
+        List<AgentActionView> actions = sanitizeActions(parsed.actions(), workbench);
 
         ChatMessageEntity userMsg = insertMessage(sessionId, "user", content);
         updateSessionTitle(session, content);
-        ChatMessageEntity assistant = insertMessage(sessionId, "assistant", answer);
+        ChatMessageEntity assistant = insertMessage(sessionId, "assistant", parsed.visibleAnswer());
         sessionMapper.updateById(session);
-        return new ChatReplyView(toMessageView(userMsg), toMessageView(assistant));
+        return new ChatReplyView(toMessageView(userMsg), toMessageView(assistant), actions);
     }
 
     @Transactional
     public ChatReplyView onboard(long projectId, String authorizationHeader) {
-        String userText = "请先阅读项目文档和源码，用简短通俗的话介绍：这是什么项目/工具/游戏？给谁用？用什么技术？";
+        String userText = "请判断：这个项目主要在做什么？有哪些值得优先关注的问题？";
         ChatSessionEntity session = new ChatSessionEntity();
         session.setProjectId(projectId);
         session.setUserId(0L);
@@ -126,7 +140,84 @@ public class ChatService {
 
         ChatMessageEntity assistant = insertMessage(session.getId(), "assistant", answer);
         sessionMapper.updateById(session);
-        return new ChatReplyView(toMessageView(userMsg), toMessageView(assistant));
+        return new ChatReplyView(toMessageView(userMsg), toMessageView(assistant), List.of());
+    }
+
+    private static String formatWorkbenchContext(WorkbenchContextDto workbench) {
+        if (workbench == null) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder("\n=== 工作台上下文（用户当前编辑态，勿外传） ===\n");
+        if (workbench.filePath() != null && !workbench.filePath().isBlank()) {
+            sb.append("当前文件：").append(workbench.filePath()).append('\n');
+        }
+        if (workbench.selectionStartLine() != null && workbench.selectionEndLine() != null) {
+            sb.append("选中行：")
+                    .append(workbench.selectionStartLine())
+                    .append('-')
+                    .append(workbench.selectionEndLine())
+                    .append('\n');
+        }
+        if (workbench.viewportStartLine() != null && workbench.viewportEndLine() != null) {
+            sb.append("可见行：")
+                    .append(workbench.viewportStartLine())
+                    .append('-')
+                    .append(workbench.viewportEndLine())
+                    .append('\n');
+        }
+        if (workbench.selectionSnippet() != null && !workbench.selectionSnippet().isBlank()) {
+            sb.append("选中片段：\n").append(truncate(workbench.selectionSnippet(), 1500)).append('\n');
+        }
+        if (workbench.fileContent() != null && !workbench.fileContent().isBlank()) {
+            sb.append("当前文件内容（节选）：\n").append(truncate(workbench.fileContent(), 8000)).append('\n');
+        }
+        if (workbench.javaFilePaths() != null && !workbench.javaFilePaths().isEmpty()) {
+            sb.append("Java 源文件列表（节选，共 ").append(workbench.javaFilePaths().size()).append(" 条）：\n");
+            int limit = Math.min(workbench.javaFilePaths().size(), 80);
+            for (int i = 0; i < limit; i++) {
+                sb.append("- ").append(workbench.javaFilePaths().get(i)).append('\n');
+            }
+        }
+        return sb.toString();
+    }
+
+    private static List<AgentActionView> sanitizeActions(List<AgentActionView> actions, WorkbenchContextDto workbench) {
+        if (actions == null || actions.isEmpty()) {
+            return List.of();
+        }
+        boolean javaOpen = workbench != null
+                && workbench.filePath() != null
+                && workbench.filePath().toLowerCase(Locale.ROOT).endsWith(".java");
+        List<AgentActionView> out = new ArrayList<>();
+        for (AgentActionView action : actions) {
+            AgentActionView safe = sanitizeOne(action, javaOpen);
+            if (safe != null) {
+                out.add(safe);
+            }
+        }
+        return out;
+    }
+
+    private static AgentActionView sanitizeOne(AgentActionView action, boolean javaFileOpen) {
+        if (action == null || action.type() == null) {
+            return null;
+        }
+        return switch (action.type()) {
+            case "JAVADOC" -> javaFileOpen ? action : null;
+            case "NAVIGATE" -> hasNavigateTarget(action) ? action : null;
+            case "CLARIFY" -> hasClarifyOptions(action) ? action : null;
+            default -> null;
+        };
+    }
+
+    private static boolean hasNavigateTarget(AgentActionView action) {
+        boolean hasSymbol = action.symbol() != null && !action.symbol().isBlank();
+        boolean hasFile = action.filePath() != null && !action.filePath().isBlank();
+        return hasSymbol || hasFile;
+    }
+
+    private static boolean hasClarifyOptions(AgentActionView action) {
+        return action.options() != null && action.options().size() >= 2;
     }
 
     private String buildContext(long projectId, long sessionId, String authorizationHeader, int maxHistory) {

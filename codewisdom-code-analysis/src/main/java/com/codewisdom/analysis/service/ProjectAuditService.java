@@ -36,8 +36,6 @@ import java.util.stream.Stream;
 @Service
 public class ProjectAuditService {
 
-    private static final int MAX_JAVA_FILES = 120;
-
     private final WorkspaceProperties workspaceProperties;
     private final AuditEngine auditEngine;
     private final AuditPipeline auditPipeline;
@@ -78,7 +76,9 @@ public class ProjectAuditService {
     public AuditReportView auditProject(long projectId) {
         Path scanRoot = scanRoot(projectId);
         if (!Files.isDirectory(scanRoot)) {
-            throw BizException.of(ErrorCode.NOT_FOUND, "项目工作区不存在: " + projectId);
+            throw BizException.of(ErrorCode.NOT_FOUND,
+                    "项目工作区不存在: " + projectId
+                            + "（请确认 code-analysis 与 project-resource 的 CW_WORKSPACE_ROOT 一致，且导入已成功）");
         }
 
         List<AuditIssue> issues = new ArrayList<>();
@@ -102,7 +102,7 @@ public class ProjectAuditService {
                 javaScan.totalJavaFiles,
                 javaScan.scannedJavaFiles,
                 javaScan.parseSkipped,
-                javaScan.totalJavaFiles > MAX_JAVA_FILES,
+                javaScan.totalJavaFiles > maxJavaFiles(),
                 buildScanNote(javaScan));
     }
 
@@ -170,7 +170,7 @@ public class ProjectAuditService {
                     .sorted()
                     .toList();
             int totalJavaFiles = allJavaFiles.size();
-            List<Path> javaFiles = allJavaFiles.stream().limit(MAX_JAVA_FILES).toList();
+            List<Path> javaFiles = allJavaFiles.stream().limit(maxJavaFiles()).toList();
             for (Path file : javaFiles) {
                 String rel = scanRoot.relativize(file).toString().replace('\\', '/');
                 try {
@@ -198,11 +198,16 @@ public class ProjectAuditService {
         }
     }
 
-    private static String buildScanNote(JavaScanResult scan) {
+    private int maxJavaFiles() {
+        return Math.max(1, workspaceProperties.getMaxJavaFiles());
+    }
+
+    private String buildScanNote(JavaScanResult scan) {
+        int limit = maxJavaFiles();
         StringBuilder sb = new StringBuilder();
         sb.append("已扫描 ").append(scan.scannedJavaFiles).append(" / ").append(scan.totalJavaFiles).append(" 个 Java 文件");
-        if (scan.totalJavaFiles > MAX_JAVA_FILES) {
-            sb.append("（超过上限 ").append(MAX_JAVA_FILES).append("，仅分析前 ").append(MAX_JAVA_FILES).append(" 个，结果可能不完整）");
+        if (scan.totalJavaFiles > limit) {
+            sb.append("（超过上限 ").append(limit).append("，仅分析前 ").append(limit).append(" 个，结果可能不完整）");
         }
         if (scan.parseSkipped > 0) {
             sb.append("；").append(scan.parseSkipped).append(" 个文件解析失败已跳过");
@@ -212,7 +217,8 @@ public class ProjectAuditService {
     }
 
     private Path scanRoot(long projectId) {
-        Path workspace = Paths.get(workspaceProperties.getRoot()).resolve(String.valueOf(projectId));
+        Path root = Paths.get(workspaceProperties.getRoot()).toAbsolutePath().normalize();
+        Path workspace = root.resolve(String.valueOf(projectId));
         Path repoDir = workspace.resolve("repo");
         if (Files.isDirectory(repoDir)) {
             return repoDir;

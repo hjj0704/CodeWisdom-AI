@@ -37,6 +37,7 @@ spring:
 codewisdom:
   workspace:
     root: ${CW_WORKSPACE_ROOT:./data/repos}
+    max-java-files: ${CW_AUDIT_MAX_JAVA_FILES:500}
   parse-cache:
     redis-enabled: true
     ttl-seconds: 3600

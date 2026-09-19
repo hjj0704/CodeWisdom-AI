@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as monaco from 'monaco-editor'
+import { useSettingsStore } from '../stores/settings'
 
 export interface IssueLineMark {
   line: number
@@ -18,12 +19,33 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
+  'ignore-issue-line': [line: number]
 }>()
 
+const settingsStore = useSettingsStore()
 const container = ref<HTMLElement | null>(null)
 let editor: monaco.editor.IStandaloneCodeEditor | null = null
+
+function applyEditorPreferences() {
+  if (!editor) return
+  editor.updateOptions({
+    fontSize: settingsStore.settings.editorFontSize,
+    minimap: { enabled: settingsStore.settings.editorMinimap },
+  })
+}
 let decorations: string[] = []
 let resizeObserver: ResizeObserver | null = null
+let themeObserver: MutationObserver | null = null
+
+function editorTheme() {
+  return document.documentElement.classList.contains('dark') ? 'vs-dark' : 'vs'
+}
+
+function syncEditorTheme() {
+  if (editor) {
+    monaco.editor.setTheme(editorTheme())
+  }
+}
 
 function riskClass(risk: IssueLineMark['risk']) {
   if (risk === 'HIGH') return 'cw-issue-line--high'
@@ -129,18 +151,42 @@ function scrollToLine(line: number) {
   editor.focus()
 }
 
-defineExpose({ scrollToLine })
+function getSelectionRange(): { startLine: number; endLine: number; text: string } | null {
+  if (!editor) return null
+  const sel = editor.getSelection()
+  const model = editor.getModel()
+  if (!sel || !model || sel.isEmpty()) return null
+  const startLine = sel.startLineNumber
+  const endLine = sel.endLineNumber
+  const text = model.getValueInRange(sel)
+  return { startLine, endLine, text }
+}
+
+function getVisibleLineRange(): { startLine: number; endLine: number } | null {
+  if (!editor) return null
+  const ranges = editor.getVisibleRanges()
+  if (!ranges.length) return null
+  let start = ranges[0].startLineNumber
+  let end = ranges[0].endLineNumber
+  for (const r of ranges) {
+    start = Math.min(start, r.startLineNumber)
+    end = Math.max(end, r.endLineNumber)
+  }
+  return { startLine: start, endLine: end }
+}
+
+defineExpose({ scrollToLine, getSelectionRange, getVisibleLineRange })
 
 onMounted(() => {
   if (!container.value) return
   editor = monaco.editor.create(container.value, {
     value: props.modelValue,
     language: langId(props.language),
-    theme: 'vs-dark',
+    theme: editorTheme(),
     readOnly: props.readOnly ?? false,
     automaticLayout: false,
-    minimap: { enabled: false },
-    fontSize: 13,
+    minimap: { enabled: settingsStore.settings.editorMinimap },
+    fontSize: settingsStore.settings.editorFontSize,
     scrollBeyondLastLine: false,
     wordWrap: 'off',
     glyphMargin: true,
@@ -156,11 +202,26 @@ onMounted(() => {
       refreshDecorations()
     }
   })
+  editor.onMouseDown((e) => {
+    const line = e.target.position?.lineNumber
+    if (!line) return
+    const onGlyph =
+      e.target.type === monaco.editor.MouseTargetType.GUTTER_GLYPH_MARGIN ||
+      e.target.type === monaco.editor.MouseTargetType.GUTTER_LINE_DECORATIONS
+    if (!onGlyph) return
+    const hasIssue = props.issueLineMarks?.some((mark) => mark.line === line)
+    if (!hasIssue) return
+    e.event.preventDefault()
+    e.event.stopPropagation()
+    emit('ignore-issue-line', line)
+  })
 
   resizeObserver = new ResizeObserver(() => {
     editor?.layout()
   })
   resizeObserver.observe(container.value)
+  themeObserver = new MutationObserver(() => syncEditorTheme())
+  themeObserver.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] })
   refreshDecorations()
 })
 
@@ -198,8 +259,14 @@ watch(
   { deep: true },
 )
 
+watch(
+  () => [settingsStore.settings.editorFontSize, settingsStore.settings.editorMinimap] as const,
+  () => applyEditorPreferences(),
+)
+
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
+  themeObserver?.disconnect()
   editor?.dispose()
 })
 </script>
@@ -232,26 +299,29 @@ onBeforeUnmount(() => {
   background: rgba(250, 204, 21, 0.16) !important;
   box-shadow: inset 3px 0 0 #eab308;
 }
-.cw-issue-glyph--high {
-  background: #ef4444;
+.cw-issue-glyph--high,
+.cw-issue-glyph--medium,
+.cw-issue-glyph--low {
   border-radius: 50%;
   margin-left: 6px;
   width: 8px !important;
   height: 8px !important;
+  cursor: pointer;
+}
+.cw-issue-glyph--high {
+  background: #ef4444;
 }
 .cw-issue-glyph--medium {
   background: #f97316;
-  border-radius: 50%;
-  margin-left: 6px;
-  width: 8px !important;
-  height: 8px !important;
 }
 .cw-issue-glyph--low {
   background: #eab308;
-  border-radius: 50%;
-  margin-left: 6px;
-  width: 8px !important;
-  height: 8px !important;
+}
+.cw-issue-glyph--high:hover,
+.cw-issue-glyph--medium:hover,
+.cw-issue-glyph--low:hover {
+  transform: scale(1.15);
+  box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.35);
 }
 .cw-fix-line {
   background: rgba(52, 211, 153, 0.18) !important;

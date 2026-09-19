@@ -1,19 +1,23 @@
 package com.codewisdom.evaluation.controller;
 
 import com.codewisdom.common.api.R;
+import com.codewisdom.evaluation.dto.SandboxDtos.DemoLinkView;
 import com.codewisdom.evaluation.dto.SandboxDtos.SandboxCheckRequest;
 import com.codewisdom.evaluation.dto.SandboxDtos.SandboxCheckView;
 import com.codewisdom.evaluation.dto.SandboxDtos.SandboxRunView;
+import com.codewisdom.evaluation.service.DemoLinkDiscoverService;
 import com.codewisdom.evaluation.service.ProjectRunProfileService;
 import com.codewisdom.evaluation.service.SandboxGuard;
 import com.codewisdom.evaluation.service.SandboxGuard.SandboxCheckResult;
 import com.codewisdom.evaluation.service.SandboxRunner;
 import com.codewisdom.evaluation.service.SandboxRunner.SandboxRunResult;
 import jakarta.validation.Valid;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -23,13 +27,16 @@ public class SandboxController {
     private final SandboxGuard sandboxGuard;
     private final SandboxRunner sandboxRunner;
     private final ProjectRunProfileService projectRunProfileService;
+    private final DemoLinkDiscoverService demoLinkDiscoverService;
 
     public SandboxController(SandboxGuard sandboxGuard,
                              SandboxRunner sandboxRunner,
-                             ProjectRunProfileService projectRunProfileService) {
+                             ProjectRunProfileService projectRunProfileService,
+                             DemoLinkDiscoverService demoLinkDiscoverService) {
         this.sandboxGuard = sandboxGuard;
         this.sandboxRunner = sandboxRunner;
         this.projectRunProfileService = projectRunProfileService;
+        this.demoLinkDiscoverService = demoLinkDiscoverService;
     }
 
     /** 校验命令是否满足沙箱策略（不执行）。重型项目直接拒绝。 */
@@ -48,6 +55,13 @@ public class SandboxController {
         }
         SandboxCheckResult result = sandboxGuard.check(request.command());
         return R.ok(SandboxCheckView.from(result));
+    }
+
+    /** 从 README/文档中探测在线演示外链（可结合仓库地址拉取远程 README）。 */
+    @GetMapping("/{projectId}/sandbox/demo-link")
+    public R<DemoLinkView> demoLink(@PathVariable long projectId,
+                                    @RequestParam(required = false) String sourceUrl) {
+        return R.ok(demoLinkDiscoverService.discover(projectId, sourceUrl));
     }
 
     /** 轻量项目在线演示（白名单命令，限时执行）。 */

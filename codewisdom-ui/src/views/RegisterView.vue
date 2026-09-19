@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import { FolderOpened, Lock, UserFilled } from '@element-plus/icons-vue'
 import { register } from '../api/auth'
 import { useAuthStore } from '../stores/auth'
+import BrandMark from '../components/BrandMark.vue'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -53,33 +54,33 @@ async function onSubmit() {
   <div class="auth-shell">
     <div class="auth-brand">
       <div class="auth-brand__logo">
-        <div class="auth-brand__mark">CW</div>
+        <BrandMark :size="48" class="auth-brand__mark" />
         <span class="section-label">Join the Platform</span>
       </div>
-      <h1 class="gradient-text">开启你的代码治理之旅</h1>
+      <h1 class="gradient-text">免费注册，开始用</h1>
       <p class="auth-brand__desc">
-        注册账号后即可导入 Git / ZIP 项目，接入线上分析管线，体验完整的智能体工作流。
+        注册后可以导入网上链接或 ZIP 压缩包里的代码，在线查看、检查问题、尝试修改。
       </p>
       <ul class="auth-features">
         <li>
           <div class="auth-features__icon"><el-icon><UserFilled /></el-icon></div>
           <div>
-            <div class="auth-features__title">独立账号空间</div>
-            <div class="auth-features__sub">安全令牌鉴权，会话本地加密存储</div>
+            <div class="auth-features__title">你的项目归你管</div>
+            <div class="auth-features__sub">每个账号只能看到自己的项目</div>
           </div>
         </li>
         <li>
           <div class="auth-features__icon"><el-icon><FolderOpened /></el-icon></div>
           <div>
-            <div class="auth-features__title">一键项目导入</div>
-            <div class="auth-features__sub">支持 Git 克隆与 ZIP 解压，自动构建文件树</div>
+            <div class="auth-features__title">两种导入方式</div>
+            <div class="auth-features__sub">网上链接（Git）或本地上传 ZIP 都可以</div>
           </div>
         </li>
         <li>
           <div class="auth-features__icon"><el-icon><Lock /></el-icon></div>
           <div>
-            <div class="auth-features__title">BCrypt 密码保护</div>
-            <div class="auth-features__sub">服务端哈希存储，传输经 HTTPS 网关</div>
+            <div class="auth-features__title">密码安全保存</div>
+            <div class="auth-features__sub">密码加密存储，不会明文保存</div>
           </div>
         </li>
       </ul>
@@ -87,13 +88,13 @@ async function onSubmit() {
 
     <div class="auth-form-panel glass-panel glass-panel--glow">
       <h2>创建账号</h2>
-      <p class="auth-form-panel__sub">填写信息完成注册，系统将自动登录</p>
+      <p class="auth-form-panel__sub">填好信息点注册，会自动登录并进入导入中心</p>
       <el-form label-position="top" @submit.prevent="onSubmit">
         <el-form-item label="用户名">
           <el-input v-model="form.username" autocomplete="username" placeholder="字母、数字、下划线" size="large" />
         </el-form-item>
         <el-form-item label="昵称（可选）">
-          <el-input v-model="form.nickname" autocomplete="nickname" placeholder="控制台展示名称" size="large" />
+          <el-input v-model="form.nickname" autocomplete="nickname" placeholder="页面上显示的名字" size="large" />
         </el-form-item>
         <el-form-item label="密码">
           <el-input v-model="form.password" type="password" show-password autocomplete="new-password" size="large" />

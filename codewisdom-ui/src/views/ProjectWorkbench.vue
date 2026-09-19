@@ -1,9 +1,13 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onMounted, onUnmounted, ref, watch } from 'vue'
+
+defineOptions({ name: 'ProjectWorkbench' })
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   ChatDotRound,
+  DArrowLeft,
+  DArrowRight,
   Download,
   FolderOpened,
   Refresh,
@@ -27,15 +31,20 @@ import {
   listSessions,
   onboardProject,
   sendChat,
+  type AgentAction,
   type ChatMessage,
   type ChatSession,
+  type ClarifyOption,
+  type WorkbenchContext,
 } from '../api/chat'
 import { fetchProjectScore, runProjectAudit, type AuditIssueItem, type RiskLevel } from '../api/audit'
 import { fetchProjectArchitecture } from '../api/architecture'
 import {
+  discoverDemoLink,
   fetchRunProfile,
   runSandboxDemo,
   validateSandboxCommand,
+  type DemoLinkResult,
   type RunProfile,
   type SandboxCheckResult,
   type SandboxRunResult,
@@ -53,14 +62,35 @@ import {
   type StructuredDiff,
 } from '../api/fix'
 import { evalStatusLabel, hitlStatusLabel, runCapabilityLabel } from '../utils/labels'
-import { parseAssistantSections } from '../utils/chatFormat'
 import { applyCodeAtLine, extractSuggestedCode, tryApplySuggestion } from '../utils/fixApply'
-import { auditIssueKey, isIgnorableAuditIssue } from '../utils/audit'
+import {
+  auditIssueKey,
+  formatAuditPath,
+  isDependencyConfigIssue,
+  isIgnorableAuditIssue,
+  normalizeAuditIssueKey,
+  shouldCollapseAuditText,
+} from '../utils/audit'
 import { riskIssueClass, riskLevelLabel, riskLevelShort, riskTagType } from '../utils/riskLevel'
 import type { IssueLineMark } from '../components/CodeEditor.vue'
 import InteractiveTour from '../components/InteractiveTour.vue'
+import TaskProgressBar from '../components/TaskProgressBar.vue'
+import { loadProjectHealth, saveProjectHealth } from '../utils/projectHealth'
+import {
+  diffAuditHistory,
+  formatHistoryTime,
+  listAuditHistory,
+  pushAuditHistory,
+  type AuditHistoryDiff,
+} from '../utils/auditHistory'
 import { workbenchTourSteps } from '../data/onboardingSteps'
 import { completeWorkbenchTour, isWorkbenchTourPending } from '../utils/onboarding'
+import { useProjectStore } from '../stores/project'
+import { useSettingsStore } from '../stores/settings'
+import type { DocGenScopeMode } from '../utils/javaDocExtract'
+import { runJavadocForScope } from '../utils/workbenchJavadoc'
+import { collectJavaFilePaths } from '../utils/javaFileIndex'
+import { locateJavaSymbol } from '../utils/symbolNavigate'
 
 const LAYOUT_STORAGE_KEY = 'codewisdom.workbench.layout'
 
@@ -85,7 +115,16 @@ function saveLayoutPrefs(prefs: WorkbenchLayoutPrefs) {
 
 const route = useRoute()
 const router = useRouter()
-const projectId = computed(() => Number(route.params.projectId))
+const projectStore = useProjectStore()
+const settingsStore = useSettingsStore()
+/** 固定项目 ID，避免 KeepAlive 切到导入页后 route 无 projectId 导致 NaN 请求 */
+const projectId = ref(0)
+
+function routeProjectId(): number | null {
+  if (route.name !== 'project-workbench') return null
+  const id = Number(route.params.projectId)
+  return Number.isFinite(id) && id > 0 ? id : null
+}
 
 const loading = ref(true)
 const projectName = ref('')
@@ -117,18 +156,24 @@ const sessions = ref<ChatSession[]>([])
 const activeSessionId = ref<number | null>(null)
 const messages = ref<ChatMessage[]>([])
 const chatInput = ref('')
+const chatAttachFile = ref(false)
+const chatAttachIssue = ref<AuditIssueItem | null>(null)
 const chatLoading = ref(false)
 const chatBox = ref<HTMLElement | null>(null)
 const pendingAiFixByMessageId = ref<Map<number, AuditIssueItem>>(new Map())
+const pendingAgentActionsByMessageId = ref<Map<number, AgentAction[]>>(new Map())
 const fixStepApplied = ref(false)
 
 const auditIssues = ref<AuditIssueItem[]>([])
 const auditScanNote = ref('')
+const auditScanTruncated = ref(false)
 const auditRefreshing = ref(false)
 let diffPreviewTimer: ReturnType<typeof setTimeout> | null = null
 const auditRiskFilter = ref<'ALL' | RiskLevel>('ALL')
 const hideIgnorableCatch = ref(true)
-const ignoredIssueKeys = ref<Set<string>>(new Set())
+const hideDependencyIssues = ref(true)
+const ignoredIssueKeys = ref<string[]>([])
+const expandedIssueKeys = ref<Set<string>>(new Set())
 const activeIssueKey = ref<string | null>(null)
 const activeFocusLine = ref<number | null>(null)
 const pendingJumpLine = ref<number | null>(null)
@@ -156,6 +201,7 @@ const runPanelCollapsed = ref(false)
 const evalPanelCollapsed = ref(false)
 const sandboxRunLoading = ref(false)
 const sandboxRunOutput = ref<SandboxRunResult | null>(null)
+const demoLinkHint = ref<DemoLinkResult | null>(null)
 
 const isNarrow = ref(false)
 const mobilePane = ref<'tree' | 'editor' | 'chat'>('editor')
@@ -166,7 +212,11 @@ const showWorkbenchTour = ref(false)
 const workbenchTourTriggered = ref(false)
 const savedLayout = readLayoutPrefs()
 const treeRef = ref<{ setCurrentKey?: (key: string) => void } | null>(null)
-const codeEditorRef = ref<{ scrollToLine?: (line: number) => void } | null>(null)
+const codeEditorRef = ref<{
+  scrollToLine?: (line: number) => void
+  getSelectionRange?: () => { startLine: number; endLine: number; text: string } | null
+  getVisibleLineRange?: () => { startLine: number; endLine: number } | null
+} | null>(null)
 const treeCollapsed = ref(savedLayout.treeCollapsed ?? false)
 const archCollapsed = ref(false)
 const detailCollapsed = ref(false)
@@ -174,11 +224,15 @@ const hintCollapsed = ref(savedLayout.hintCollapsed ?? false)
 const treeWidth = ref(savedLayout.treeWidth ?? 280)
 const chatWidth = ref(savedLayout.chatWidth ?? 380)
 
-const gridStyle = computed(() => {
-  if (isNarrow.value) return {}
-  const treeCol = treeCollapsed.value ? '48px' : `${treeWidth.value}px`
-  const chatCol = showChatPanel.value ? `${chatWidth.value}px` : '0px'
-  return { gridTemplateColumns: `${treeCol} 5px minmax(0, 1fr) 5px ${chatCol}` }
+const treeAsideStyle = computed(() => {
+  if (isNarrow.value) return undefined
+  const width = treeCollapsed.value ? 52 : treeWidth.value
+  return { width: `${width}px`, flex: `0 0 ${width}px`, minWidth: `${width}px` }
+})
+
+const chatAsideStyle = computed(() => {
+  if (isNarrow.value || !showChatPanel.value) return undefined
+  return { width: `${chatWidth.value}px`, flex: `0 0 ${chatWidth.value}px` }
 })
 
 watch([treeWidth, chatWidth, treeCollapsed, hintCollapsed], () => {
@@ -190,57 +244,190 @@ watch([treeWidth, chatWidth, treeCollapsed, hintCollapsed], () => {
   })
 })
 
+function isIssueIgnored(issue: AuditIssueItem): boolean {
+  return ignoredIssueKeys.value.includes(auditIssueKey(issue))
+}
+
 const visibleAuditIssues = computed(() => {
   return auditIssues.value.filter((issue) => {
-    const key = auditIssueKey(issue)
-    if (ignoredIssueKeys.value.has(key)) return false
+    if (isIssueIgnored(issue)) return false
     if (hideIgnorableCatch.value && isIgnorableAuditIssue(issue)) return false
+    if (hideDependencyIssues.value && isDependencyConfigIssue(issue)) return false
     return true
   })
 })
 
-const issueCountByPath = computed(() => {
-  const map: Record<string, number> = {}
+const hiddenDependencyCount = computed(() =>
+  auditIssues.value.filter((i) => !isIssueIgnored(i) && isDependencyConfigIssue(i)).length,
+)
+
+const treeIssueStats = computed(() => {
+  const counts: Record<string, number> = {}
+  const risks: Record<string, RiskLevel> = {}
   for (const issue of visibleAuditIssues.value) {
-    map[issue.filePath] = (map[issue.filePath] ?? 0) + 1
+    const segments = issue.filePath.split('/')
+    for (let i = segments.length; i >= 1; i--) {
+      const path = segments.slice(0, i).join('/')
+      counts[path] = (counts[path] ?? 0) + 1
+      const cur = risks[path]
+      if (!cur || riskWeight(issue.riskLevel) > riskWeight(cur)) {
+        risks[path] = issue.riskLevel
+      }
+    }
   }
-  return map
+  return { counts, risks }
+})
+
+const maxTreeIssueCount = computed(() => {
+  const vals = Object.values(treeIssueStats.value.counts)
+  return vals.length ? Math.max(...vals) : 1
 })
 
 const issueLineMarks = computed((): IssueLineMark[] => {
   if (!currentPath.value || fileBinary.value) return []
   const maxLine = Math.max(1, editorContent.value.split('\n').length)
   return visibleAuditIssues.value
-    .filter((i) => i.filePath === currentPath.value && i.line >= 1 && i.line <= maxLine)
+    .filter((i) => {
+      if (i.filePath !== currentPath.value || i.line < 1 || i.line > maxLine) return false
+      if (hideDependencyIssues.value && isDependencyConfigIssue(i)) return false
+      return true
+    })
     .map((i) => ({ line: i.line, risk: i.riskLevel }))
 })
 
-const worstRiskByPath = computed(() => {
-  const map: Record<string, RiskLevel> = {}
-  for (const issue of visibleAuditIssues.value) {
-    const cur = map[issue.filePath]
-    if (!cur || riskWeight(issue.riskLevel) > riskWeight(cur)) {
-      map[issue.filePath] = issue.riskLevel
-    }
+const worstRiskByPath = computed(() => treeIssueStats.value.risks)
+
+const pathBreadcrumbs = computed(() => (currentPath.value ? currentPath.value.split('/') : []))
+
+const statusBarChips = computed(() => {
+  const chips: Array<{ key: string; label: string; type: 'success' | 'warning' | 'danger' | 'info' }> = []
+  if (auditLoading.value) chips.push({ key: 'audit', label: '检查代码中…', type: 'info' })
+  if (fixLoading.value) chips.push({ key: 'fix', label: '生成修复建议中…', type: 'info' })
+  if (diffLoading.value) chips.push({ key: 'diff', label: '对比修改中…', type: 'info' })
+  if (saveLoading.value) chips.push({ key: 'save', label: '保存中…', type: 'info' })
+  if (fileDirty.value) chips.push({ key: 'dirty', label: '未保存', type: 'warning' })
+  if (visibleAuditIssues.value.length) {
+    const high = visibleAuditIssues.value.filter((i) => i.riskLevel === 'HIGH').length
+    chips.push({
+      key: 'issues',
+      label: high
+        ? `${visibleAuditIssues.value.length} 问题 · ${high} 严重`
+        : `${visibleAuditIssues.value.length} 个问题`,
+      type: high > 0 ? 'danger' : 'warning',
+    })
+  } else if (auditIssues.value.length > 0) {
+    chips.push({ key: 'filtered', label: '可见问题已过滤', type: 'success' })
   }
-  return map
+  if (hitlState.value?.lastStatus === 'REJECTED') {
+    chips.push({ key: 'hitl', label: '修复已驳回', type: 'warning' })
+  }
+  return chips
 })
+
+const lastActivityLabel = ref('')
+const lastActivityAt = ref<Date | null>(null)
+
+const taskProgress = ref({
+  visible: false,
+  title: '',
+  percent: 0,
+  stage: '',
+})
+let taskProgressTimer: ReturnType<typeof setInterval> | null = null
+
+const AUDIT_PROGRESS_STAGES = ['准备扫描环境', '解析 Java 源码', '执行规则检查', '汇总问题报告']
+const FIX_PROGRESS_STAGES = ['分析问题上下文', '匹配修复模板', '生成改法建议', '整理输出结果']
+
+function touchActivity(label: string) {
+  lastActivityLabel.value = label
+  lastActivityAt.value = new Date()
+}
+
+function formatActivityTime(date: Date): string {
+  const diff = Date.now() - date.getTime()
+  if (diff < 60_000) return '刚刚'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`
+  return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+}
+
+function treeIssueCount(path: string): number {
+  return treeIssueStats.value.counts[path] ?? 0
+}
+
+function treeDensityWidth(path: string): string {
+  const count = treeIssueCount(path)
+  if (!count) return '0%'
+  const pct = Math.round((count / maxTreeIssueCount.value) * 100)
+  return `${Math.max(18, Math.min(100, pct))}%`
+}
+
+function stopTaskProgressTimer() {
+  if (taskProgressTimer) {
+    clearInterval(taskProgressTimer)
+    taskProgressTimer = null
+  }
+}
+
+function startTaskProgress(title: string, stages: string[]) {
+  stopTaskProgressTimer()
+  taskProgress.value = {
+    visible: true,
+    title,
+    percent: 5,
+    stage: stages[0] ?? '处理中…',
+  }
+  taskProgressTimer = setInterval(() => {
+    if (taskProgress.value.percent < 92) {
+      taskProgress.value.percent = Math.min(92, taskProgress.value.percent + 2 + Math.random() * 4)
+      const idx = Math.min(stages.length - 1, Math.floor((taskProgress.value.percent / 94) * stages.length))
+      taskProgress.value.stage = stages[idx] ?? taskProgress.value.stage
+    }
+  }, 650)
+}
+
+function finishTaskProgress(ok = true) {
+  stopTaskProgressTimer()
+  taskProgress.value.percent = ok ? 100 : taskProgress.value.percent
+  taskProgress.value.stage = ok ? '完成' : '已中断'
+  window.setTimeout(() => {
+    taskProgress.value.visible = false
+    taskProgress.value.percent = 0
+    taskProgress.value.stage = ''
+  }, ok ? 900 : 1200)
+}
+
+function persistProjectHealthFromAudit(report: {
+  total: number
+  highCount: number
+  mediumCount: number
+  lowCount: number
+}) {
+  saveProjectHealth({
+    projectId: projectId.value,
+    totalIssues: report.total,
+    highCount: report.highCount,
+    mediumCount: report.mediumCount,
+    lowCount: report.lowCount,
+    overallScore: scoreOverall.value ?? undefined,
+    auditedAt: new Date().toISOString(),
+  })
+}
 
 const fixWorkflowSteps = computed(() => {
   const hasAudit = auditIssues.value.length > 0
   const hasSuggest = fixRecords.value.length > 0
-  const hasEdit = fixStepApplied.value && fileDirty.value
+  const hasEdit = fileDirty.value
   const hasDiff = !!diffPreview.value?.changed
   const hitlDone =
     hitlState.value?.lastStatus === 'APPROVED' ||
     hitlState.value?.lastStatus === 'MODIFIED' ||
     hitlState.value?.terminated
   return [
-    { key: 'audit', label: '① 运行审计', done: hasAudit },
-    { key: 'suggest', label: '② 生成修复建议', done: hasSuggest },
-    { key: 'apply', label: '③ 应用 / AI 改代码', done: hasEdit },
-    { key: 'diff', label: '④ 预览 Diff', done: hasDiff },
-    { key: 'hitl', label: '⑤ 保存并人工确认', done: hitlDone },
+    { key: 'audit', label: '① 检查代码', done: hasAudit },
+    { key: 'suggest', label: '② 获取改法建议', done: hasSuggest },
+    { key: 'apply', label: '③ 应用或让 AI 改', done: hasEdit },
+    { key: 'diff', label: '④ 对比修改', done: hasDiff },
+    { key: 'hitl', label: '⑤ 保存并确认', done: hitlDone },
   ]
 })
 
@@ -280,8 +467,64 @@ const fixBarFixRecord = computed(() => {
 })
 
 const ignorableCatchCount = computed(() =>
-  auditIssues.value.filter((i) => isIgnorableAuditIssue(i) && !ignoredIssueKeys.value.has(auditIssueKey(i))).length,
+  auditIssues.value.filter((i) => isIgnorableAuditIssue(i) && !isIssueIgnored(i)).length,
 )
+
+const suggestibleIssues = computed(() => {
+  const pool = auditRiskFilter.value === 'ALL' ? visibleAuditIssues.value : filteredAuditIssues.value
+  return pool.filter((issue) => !fixByIssueKey.value.has(auditIssueKey(issue)))
+})
+
+const suggestibleCount = computed(() => suggestibleIssues.value.length)
+
+const batchFixRuleGroups = computed(() => {
+  const map = new Map<string, AuditIssueItem[]>()
+  for (const issue of suggestibleIssues.value) {
+    const list = map.get(issue.ruleId) ?? []
+    list.push(issue)
+    map.set(issue.ruleId, list)
+  }
+  return [...map.entries()]
+    .filter(([, issues]) => issues.length >= 2)
+    .sort((a, b) => b[1].length - a[1].length)
+})
+
+const auditHistoryVisible = ref(false)
+const docGenLoading = ref(false)
+const auditHistoryEntries = computed(() => listAuditHistory(projectId.value))
+
+const isJavaFile = computed(
+  () => !!currentPath.value && /\.java$/i.test(currentPath.value) && !fileBinary.value,
+)
+
+const auditHistoryCompare = computed((): AuditHistoryDiff | null => {
+  const list = auditHistoryEntries.value
+  if (list.length < 2) return null
+  return diffAuditHistory(list[1], list[0].issueKeys)
+})
+
+const showLiveDiffPanel = computed(
+  () => !!currentPath.value && fileDirty.value && !fileBinary.value,
+)
+
+function isIssueExpanded(key: string): boolean {
+  return expandedIssueKeys.value.has(key)
+}
+
+function toggleIssueExpanded(key: string) {
+  const next = new Set(expandedIssueKeys.value)
+  if (next.has(key)) next.delete(key)
+  else next.add(key)
+  expandedIssueKeys.value = next
+}
+
+function issueNeedsCollapse(issue: AuditIssueItem): boolean {
+  return (
+    shouldCollapseAuditText(issue.description, 88) ||
+    shouldCollapseAuditText(issue.filePath, 40) ||
+    shouldCollapseAuditText(issue.triggerSnippet ?? '', 100)
+  )
+}
 const filteredTree = computed(() => {
   if (!treeFilter.value.trim()) return treeData.value
   const kw = treeFilter.value.trim().toLowerCase()
@@ -298,13 +541,6 @@ const filteredTree = computed(() => {
   }
   return match(treeData.value)
 })
-
-const displayMessages = computed(() =>
-  messages.value.map((m) => ({
-    ...m,
-    sections: m.role === 'assistant' ? parseAssistantSections(m.content) : null,
-  })),
-)
 
 const visibleFixRecords = computed(() =>
   fixRecords.value.filter((r) => !dismissedFixIds.value.has(r.id)),
@@ -345,35 +581,67 @@ function loadIgnoredIssues() {
   try {
     const raw = localStorage.getItem(ignoredIssuesStorageKey())
     if (!raw) return
-    ignoredIssueKeys.value = new Set(JSON.parse(raw) as string[])
+    const parsed = JSON.parse(raw) as string[]
+    ignoredIssueKeys.value = Array.isArray(parsed) ? parsed.map(normalizeAuditIssueKey) : []
   } catch {
-    ignoredIssueKeys.value = new Set()
+    ignoredIssueKeys.value = []
   }
 }
 
 function persistIgnoredIssues() {
-  localStorage.setItem(ignoredIssuesStorageKey(), JSON.stringify([...ignoredIssueKeys.value]))
+  localStorage.setItem(ignoredIssuesStorageKey(), JSON.stringify(ignoredIssueKeys.value))
 }
 
-function ignoreIssue(issue: AuditIssueItem) {
-  ignoredIssueKeys.value = new Set([...ignoredIssueKeys.value, auditIssueKey(issue)])
+function ignoreIssuesAtLine(line: number) {
+  const issues = auditIssues.value.filter(
+    (i) => i.filePath === currentPath.value && i.line === line && !isIssueIgnored(i),
+  )
+  if (!issues.length) {
+    ElMessage.info('此行没有可忽略的问题')
+    return
+  }
+  for (const issue of issues) {
+    ignoreIssue(issue, false)
+  }
+  ElMessage.success(`已忽略第 ${line} 行的 ${issues.length} 个问题`)
+}
+
+function ignoreIssue(issue: AuditIssueItem, showToast = true) {
+  const key = auditIssueKey(issue)
+  if (!ignoredIssueKeys.value.includes(key)) {
+    ignoredIssueKeys.value = [...ignoredIssueKeys.value, key]
+  }
   persistIgnoredIssues()
-  if (activeIssueKey.value === auditIssueKey(issue)) {
+  const fix = fixRecords.value.find((r) => r.issueKey === key)
+  if (fix) {
+    dismissedFixIds.value = new Set([...dismissedFixIds.value, fix.id])
+    persistDismissedFixes()
+    if (activeFixId.value === fix.id) {
+      activeFixId.value = null
+    }
+  }
+  if (activeIssueKey.value === key) {
     activeIssueKey.value = null
     activeFocusLine.value = null
   }
-  ElMessage.success('已忽略该审计项')
+  if (showToast) ElMessage.success('已忽略该问题')
+}
+
+function clearIgnoredIssues() {
+  ignoredIssueKeys.value = []
+  persistIgnoredIssues()
+  ElMessage.success('已恢复显示被忽略的问题')
 }
 
 function ignoreAllCatchIssues() {
   const keys = auditIssues.value
-    .filter((i) => isIgnorableAuditIssue(i) && !ignoredIssueKeys.value.has(auditIssueKey(i)))
+    .filter((i) => isIgnorableAuditIssue(i) && !isIssueIgnored(i))
     .map(auditIssueKey)
   if (!keys.length) {
     ElMessage.info('没有可忽略的空 catch 项')
     return
   }
-  ignoredIssueKeys.value = new Set([...ignoredIssueKeys.value, ...keys])
+  ignoredIssueKeys.value = [...ignoredIssueKeys.value, ...keys.filter((k) => !ignoredIssueKeys.value.includes(k))]
   persistIgnoredIssues()
   ElMessage.success(`已忽略 ${keys.length} 条空 catch 问题`)
 }
@@ -400,8 +668,13 @@ async function loadProject() {
     statFileCount.value = stats.fileCount
     statTotalSize.value = stats.totalSize
     statMaxDepth.value = stats.maxDepth
+    touchActivity('刷新项目')
   } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : '加载项目失败')
+    const msg = e instanceof Error ? e.message : '加载项目失败'
+    ElMessage.error(msg)
+    if (msg.includes('未就绪') || msg.includes('不存在') || msg.includes('无权')) {
+      projectStore.removeRecent(projectId.value)
+    }
   } finally {
     loading.value = false
   }
@@ -455,13 +728,7 @@ async function onTreeClick(node: TreeNode) {
       await focusEditorLine(pendingJumpLine.value)
       pendingJumpLine.value = null
     }
-    if (!workbenchTourTriggered.value && isWorkbenchTourPending()) {
-      workbenchTourTriggered.value = true
-      await nextTick()
-      setTimeout(() => {
-        showWorkbenchTour.value = true
-      }, 400)
-    }
+    touchActivity(`打开 ${node.path}`)
   } catch (e) {
     ElMessage.error(e instanceof Error ? e.message : '读取文件失败')
   }
@@ -522,6 +789,14 @@ async function openChatPanel() {
   }
 }
 
+function onRevertEditorChanges() {
+  if (!fileDirty.value || fileBinary.value) return
+  editorContent.value = savedContent.value
+  diffPreview.value = null
+  fixStepApplied.value = false
+  ElMessage.info('已撤销未保存的修改，恢复为上次保存内容')
+}
+
 async function onSaveFile(): Promise<boolean> {
   if (!currentPath.value || fileBinary.value || !fileDirty.value) return false
   const issueKeyToVerify =
@@ -534,6 +809,7 @@ async function onSaveFile(): Promise<boolean> {
     savedContent.value = editorContent.value
     diffPreview.value = null
     ElMessage.success('已保存')
+    touchActivity(`保存 ${currentPath.value}`)
     if (issueKeyToVerify) {
       fixStepApplied.value = false
       await refreshAuditAfterFix(issueKeyToVerify)
@@ -549,24 +825,30 @@ async function onSaveFile(): Promise<boolean> {
 
 async function refreshAuditAfterFix(issueKey?: string | null) {
   auditRefreshing.value = true
+  startTaskProgress('保存后重新检查', AUDIT_PROGRESS_STAGES)
   try {
     const report = await runProjectAudit(projectId.value)
     const prevTotal = auditIssues.value.length
     auditIssues.value = report.issues
     auditScanNote.value = report.scanNote ?? ''
+    auditScanTruncated.value = report.scanTruncated ?? false
     if (issueKey) {
       const stillThere = report.issues.some((i) => auditIssueKey(i) === issueKey)
       clearFixStateIfResolved(issueKey)
       if (!stillThere) {
-        ElMessage.success('该审计项已消除，列表已更新')
+        ElMessage.success('该问题已消除，列表已更新')
       } else {
         ElMessage.warning('已保存，但规则仍命中该行，请继续修改或点「忽略」')
       }
     } else if (report.issues.length < prevTotal) {
-      ElMessage.success(`审计已更新：${prevTotal} → ${report.issues.length} 个问题`)
+      ElMessage.success(`检查已更新：${prevTotal} → ${report.issues.length} 个问题`)
     }
+    persistProjectHealthFromAudit(report)
+    pushAuditHistory(projectId.value, report.issues)
+    finishTaskProgress(true)
   } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : '保存后刷新审计失败，请手动运行审计')
+    finishTaskProgress(false)
+    ElMessage.error(e instanceof Error ? e.message : '保存后重新检查失败，请手动点「检查代码」')
   } finally {
     auditRefreshing.value = false
   }
@@ -586,14 +868,15 @@ function clearFixStateIfResolved(issueKey: string) {
 }
 
 function scheduleAutoDiffPreview() {
+  if (route.name !== 'project-workbench' || projectId.value <= 0) return
   if (diffPreviewTimer) clearTimeout(diffPreviewTimer)
   if (!currentPath.value || fileBinary.value || !fileDirty.value) {
     diffPreview.value = null
     return
   }
   diffPreviewTimer = setTimeout(() => {
-    onPreviewDiff(true)
-  }, 400)
+    void onPreviewDiff(true)
+  }, 350)
 }
 
 async function loadFixRecords() {
@@ -626,30 +909,277 @@ async function confirmIfDirty(actionLabel: string): Promise<boolean> {
   }
 }
 
-async function onSuggestFixes() {
-  const pool =
-    auditRiskFilter.value === 'ALL' ? visibleAuditIssues.value : filteredAuditIssues.value
+async function runSuggestFixesPool(pool: AuditIssueItem[], progressTitle = '生成改法建议') {
   if (!pool.length) {
-    ElMessage.warning('没有可处理的问题（可能已全部忽略、隐藏或当前筛选无结果）')
+    ElMessage.warning('没有可生成建议的问题')
     return
   }
   fixLoading.value = true
+  detailCollapsed.value = false
+  startTaskProgress(progressTitle, FIX_PROGRESS_STAGES)
   try {
     const picked = [...pool].sort((a, b) => riskWeight(b.riskLevel) - riskWeight(a.riskLevel)).slice(0, 8)
     await suggestFixes(projectId.value, picked)
     await loadFixRecords()
     if (!fixRecords.value.length) {
-      ElMessage.warning('未生成修复建议')
+      finishTaskProgress(false)
+      ElMessage.warning('还没有改法建议')
       return
     }
-    ElMessage.success(`已生成/更新修复建议，共 ${fixRecords.value.length} 条记录`)
+    finishTaskProgress(true)
+    touchActivity(`生成 ${fixRecords.value.length} 条改法建议`)
+    ElMessage.success(`已生成改法建议，共 ${fixRecords.value.length} 条`)
     activeFixId.value = fixRecords.value[0]?.id ?? null
     fixStepApplied.value = false
     await loadHitlState()
   } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : '生成修复建议失败')
+    finishTaskProgress(false)
+    ElMessage.error(e instanceof Error ? e.message : '获取改法建议失败')
   } finally {
     fixLoading.value = false
+  }
+}
+
+async function onSuggestFixes() {
+  const pool = suggestibleIssues.value
+  if (!pool.length) {
+    ElMessage.warning('没有可生成建议的问题（可能已全部忽略、已有建议或当前筛选无结果）')
+    return
+  }
+  await runSuggestFixesPool(pool)
+}
+
+async function onBatchSuggestFixes(ruleId: string) {
+  const pool = suggestibleIssues.value.filter((i) => i.ruleId === ruleId)
+  if (pool.length < 2) {
+    ElMessage.info('该规则下可建议的问题不足 2 条')
+    return
+  }
+  await runSuggestFixesPool(pool, `批量生成 · ${ruleId}`)
+}
+
+function openAuditHistoryDialog() {
+  auditHistoryVisible.value = true
+}
+
+function applyWorkbenchSettingsDefaults() {
+  hideDependencyIssues.value = settingsStore.settings.workbenchHideDependency
+  hideIgnorableCatch.value = settingsStore.settings.workbenchHideCatch
+  if (settingsStore.settings.workbenchCompactPanels) {
+    hintCollapsed.value = true
+  }
+}
+
+function getEditorLineRanges() {
+  const selection = codeEditorRef.value?.getSelectionRange?.() ?? null
+  const viewport = codeEditorRef.value?.getVisibleLineRange?.() ?? null
+  return {
+    selection: selection ? { startLine: selection.startLine, endLine: selection.endLine } : null,
+    viewport,
+    selectionText: selection?.text ?? '',
+  }
+}
+
+function buildWorkbenchContext(): WorkbenchContext {
+  const ranges = getEditorLineRanges()
+  const ctx: WorkbenchContext = {}
+  if (currentPath.value) ctx.filePath = currentPath.value
+  if (ranges.selection) {
+    ctx.selectionStartLine = ranges.selection.startLine
+    ctx.selectionEndLine = ranges.selection.endLine
+    if (ranges.selectionText.trim()) {
+      ctx.selectionSnippet = ranges.selectionText.slice(0, 2000)
+    }
+  }
+  if (ranges.viewport) {
+    ctx.viewportStartLine = ranges.viewport.startLine
+    ctx.viewportEndLine = ranges.viewport.endLine
+  }
+  if (chatAttachFile.value && currentPath.value && !fileBinary.value) {
+    ctx.fileContent = editorContent.value.slice(0, 12000)
+  }
+  const javaPaths = collectJavaFilePaths(treeData.value, 200)
+  if (javaPaths.length) ctx.javaFilePaths = javaPaths
+  return ctx
+}
+
+async function openFileAtLine(filePath: string, line: number) {
+  const safeLine = Math.max(1, line)
+  showChatPanel.value = true
+  if (filePath === currentPath.value) {
+    await focusEditorLine(safeLine)
+    return
+  }
+  pendingJumpLine.value = safeLine
+  await onTreeClick({
+    label: filePath.split('/').pop() ?? filePath,
+    path: filePath,
+    isLeaf: true,
+  })
+}
+
+async function navigateByAgentAction(action: AgentAction) {
+  const javaPaths = collectJavaFilePaths(treeData.value, 200)
+  if (action.filePath && !action.symbol) {
+    await openFileAtLine(action.filePath, action.line ?? 1)
+    return
+  }
+  const symbol = action.symbol?.trim()
+  if (!symbol) {
+    throw new Error('缺少要定位的方法或类名')
+  }
+  const loc = await locateJavaSymbol({
+    projectId: projectId.value,
+    javaPaths,
+    symbol,
+    hintFilePath: action.filePath ?? undefined,
+    currentFilePath: currentPath.value || undefined,
+    currentFileContent: !fileBinary.value ? editorContent.value : undefined,
+    lineHint: action.line ?? null,
+  })
+  if (!loc) {
+    throw new Error(`未在项目中找到「${symbol}」，可尝试 @文件 或说明完整类名`)
+  }
+  await openFileAtLine(loc.filePath, loc.line)
+}
+
+function stashAgentActions(messageId: number, actions?: AgentAction[]) {
+  if (!actions?.length) return
+  pendingAgentActionsByMessageId.value = new Map(pendingAgentActionsByMessageId.value).set(
+    messageId,
+    actions,
+  )
+}
+
+function agentActionsForMessage(messageId: number) {
+  return pendingAgentActionsByMessageId.value.get(messageId) ?? []
+}
+
+function agentScopeLabel(scope: string) {
+  if (scope === 'viewport') return '当前可见区域'
+  if (scope === 'selection') return '选中代码'
+  return '全文件'
+}
+
+function clearAgentActions(messageId: number) {
+  const next = new Map(pendingAgentActionsByMessageId.value)
+  next.delete(messageId)
+  pendingAgentActionsByMessageId.value = next
+}
+
+async function applyJavadocWithScope(scope: DocGenScopeMode, skipConfirm = false) {
+  if (!isJavaFile.value || !currentPath.value || fileBinary.value) {
+    ElMessage.warning('请先打开可编辑的 Java 源文件')
+    return
+  }
+  const scopeText =
+    scope === 'file' ? '全文件' : scope === 'viewport' ? '当前可见区域' : '选中代码'
+  if (!skipConfirm) {
+    try {
+      await ElMessageBox.confirm(
+        `范围：${scopeText}。将调用 AI 生成 Javadoc 并写入编辑器（已有注释跳过），写入后请保存。`,
+        '一键补充注释',
+        { confirmButtonText: '开始生成', cancelButtonText: '取消', type: 'info' },
+      )
+    } catch {
+      return
+    }
+  }
+  docGenLoading.value = true
+  try {
+    const { applied, scopeLabel } = await runJavadocForScope({
+      projectId: projectId.value,
+      source: editorContent.value,
+      filePath: currentPath.value,
+      scope,
+      editorRanges: getEditorLineRanges(),
+    })
+    if (!applied.insertedType && !applied.insertedMethods.length) {
+      const skipHint = applied.skippedExisting.length
+        ? `（已跳过：${applied.skippedExisting.join('、')}）`
+        : ''
+      ElMessage.info(`「${scopeLabel}」没有可插入的位置${skipHint}`)
+      return
+    }
+    editorContent.value = applied.content
+    touchActivity(`补充 Javadoc · ${scopeLabel}`)
+    scheduleAutoDiffPreview()
+    const parts: string[] = []
+    if (applied.insertedType) parts.push('类型 1 处')
+    if (applied.insertedMethods.length) parts.push(`方法 ${applied.insertedMethods.length} 处`)
+    const skipHint = applied.skippedExisting.length
+      ? `；已跳过已有注释：${applied.skippedExisting.join('、')}`
+      : ''
+    ElMessage.success(`「${scopeLabel}」已写入 ${parts.join('、')}${skipHint}，请保存文件`)
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : 'Javadoc 生成失败')
+  } finally {
+    docGenLoading.value = false
+  }
+}
+
+async function onJavadocCommand(command: string | number) {
+  await applyJavadocWithScope(String(command) as DocGenScopeMode)
+}
+
+async function onExecuteAgentAction(msg: ChatMessage, action: AgentAction) {
+  if (action.type === 'JAVADOC') {
+    try {
+      await ElMessageBox.confirm(
+        `${action.summary}\n范围：${agentScopeLabel(action.scope ?? 'file')}\n\n将调用文档生成接口写入当前编辑器（不会自动保存）。`,
+        '确认 Agent 操作',
+        { type: 'warning', confirmButtonText: '执行', cancelButtonText: '取消' },
+      )
+    } catch {
+      return
+    }
+    const scope = (action.scope || 'file') as DocGenScopeMode
+    await applyJavadocWithScope(scope, true)
+    clearAgentActions(msg.id)
+    return
+  }
+  if (action.type === 'NAVIGATE') {
+    try {
+      await ElMessageBox.confirm(
+        `${action.summary}\n\n将在工作台打开文件并定位到对应行（不修改代码）。`,
+        '确认跳转',
+        { type: 'info', confirmButtonText: '跳转', cancelButtonText: '取消' },
+      )
+    } catch {
+      return
+    }
+    try {
+      await navigateByAgentAction(action)
+      touchActivity(`Agent 跳转 · ${action.symbol ?? action.filePath ?? ''}`)
+      ElMessage.success('已跳转到目标位置')
+      clearAgentActions(msg.id)
+    } catch (e) {
+      ElMessage.error(e instanceof Error ? e.message : '跳转失败')
+    }
+    return
+  }
+  ElMessage.warning('该操作类型不在安全白名单内')
+}
+
+async function onClarifyOption(msg: ChatMessage, option: ClarifyOption) {
+  if (!activeSessionId.value) {
+    await onNewSession()
+  }
+  if (!activeSessionId.value) return
+  const text = `我选择：${option.label}（选项 ${option.id}）`
+  chatLoading.value = true
+  try {
+    const reply = await sendChat(activeSessionId.value, text, buildWorkbenchContext())
+    messages.value.push(reply.userMessage, reply.assistantMessage)
+    stashAgentActions(reply.assistantMessage.id, reply.actions)
+    clearAgentActions(msg.id)
+    await loadSessions()
+    await nextTick()
+    chatBox.value?.scrollTo({ top: chatBox.value.scrollHeight, behavior: 'smooth' })
+  } catch (e) {
+    ElMessage.error(e instanceof Error ? e.message : '发送失败')
+  } finally {
+    chatLoading.value = false
   }
 }
 
@@ -728,7 +1258,7 @@ async function onPreviewDiff(silent = false) {
     await loadFixRecords()
   } catch (e) {
     if (!silent) {
-      ElMessage.error(e instanceof Error ? e.message : 'Diff 预览失败')
+      ElMessage.error(e instanceof Error ? e.message : '对比修改失败')
     }
   } finally {
     diffLoading.value = false
@@ -737,15 +1267,15 @@ async function onPreviewDiff(silent = false) {
 
 async function onHitl(status: 'APPROVED' | 'MODIFIED' | 'REJECTED') {
   if (!activeFixId.value) {
-    ElMessage.warning('请先选择一条修复建议再确认 HITL')
+    ElMessage.warning('请先选择一条改法建议再确认')
     return
   }
   if ((status === 'APPROVED' || status === 'MODIFIED') && !fileDirty.value) {
-    ElMessage.warning('当前无未保存修改，请先应用建议或 AI 修改并预览 Diff')
+    ElMessage.warning('当前没有未保存的修改，请先应用建议或让 AI 改，再点「对比修改」')
     return
   }
   if (hitlState.value?.terminated) {
-    ElMessage.info('本条建议的 HITL 已结束，请选择其他建议或重新生成')
+    ElMessage.info('这条建议已经确认过了，请选其他建议或重新获取')
     return
   }
   hitlLoading.value = true
@@ -756,16 +1286,16 @@ async function onHitl(status: 'APPROVED' | 'MODIFIED' | 'REJECTED') {
       sessionKey: hitlSessionKey.value,
     })
     if (hitlState.value.terminated && status === 'REJECTED') {
-      ElMessage.warning(`HITL：已驳回（轮次 ${hitlState.value.round}）`)
+      ElMessage.warning(`已驳回（第 ${hitlState.value.round} 轮）`)
     } else {
-      ElMessage.success(`HITL：${status}`)
+      ElMessage.success(`已确认：${status}`)
     }
     if (status === 'APPROVED' || status === 'MODIFIED') {
       const saved = await onSaveFile()
       if (saved) fixStepApplied.value = false
     }
   } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : 'HITL 提交失败')
+    ElMessage.error(e instanceof Error ? e.message : '确认提交失败')
   } finally {
     hitlLoading.value = false
   }
@@ -798,19 +1328,27 @@ async function onDownload() {
 
 async function onRunAudit() {
   auditLoading.value = true
+  touchActivity('检查代码中')
+  startTaskProgress('检查代码', AUDIT_PROGRESS_STAGES)
   try {
     const report = await runProjectAudit(projectId.value)
     auditIssues.value = report.issues
     auditScanNote.value = report.scanNote ?? ''
+    auditScanTruncated.value = report.scanTruncated ?? false
     fixRecords.value = []
     activeFixId.value = null
     diffPreview.value = null
     fixStepApplied.value = false
     pendingAiFixByMessageId.value = new Map()
     await loadHitlState()
-    ElMessage.success(`审计完成：${report.total} 个问题（高 ${report.highCount}）— 请重新生成修复建议`)
+    persistProjectHealthFromAudit(report)
+    pushAuditHistory(projectId.value, report.issues)
+    finishTaskProgress(true)
+    touchActivity(`检查完成 · ${report.total} 个问题`)
+    ElMessage.success(`检查完成：发现 ${report.total} 个问题（严重 ${report.highCount} 个）— 可点「获取改法建议」`)
   } catch (e) {
-    ElMessage.error(e instanceof Error ? e.message : '审计失败')
+    finishTaskProgress(false)
+    ElMessage.error(e instanceof Error ? e.message : '检查代码失败')
   } finally {
     auditLoading.value = false
   }
@@ -822,6 +1360,16 @@ async function onLoadScore() {
     const score = await fetchProjectScore(projectId.value)
     scoreOverall.value = score.overall
     scoreSummary.value = score.summary
+    const cached = loadProjectHealth(projectId.value)
+    saveProjectHealth({
+      projectId: projectId.value,
+      totalIssues: cached?.totalIssues ?? visibleAuditIssues.value.length,
+      highCount: cached?.highCount ?? auditIssues.value.filter((i) => i.riskLevel === 'HIGH').length,
+      mediumCount: cached?.mediumCount ?? auditIssues.value.filter((i) => i.riskLevel === 'MEDIUM').length,
+      lowCount: cached?.lowCount ?? auditIssues.value.filter((i) => i.riskLevel === 'LOW').length,
+      overallScore: score.overall,
+      auditedAt: cached?.auditedAt ?? new Date().toISOString(),
+    })
   } catch (e) {
     ElMessage.error(e instanceof Error ? e.message : '评分失败')
   } finally {
@@ -854,13 +1402,63 @@ async function onOnboard() {
   }
 }
 
+function toggleChatAttachFile() {
+  if (!currentPath.value) {
+    ElMessage.info('请先打开一个文件')
+    return
+  }
+  chatAttachFile.value = !chatAttachFile.value
+}
+
+function attachChatActiveIssue() {
+  const issue =
+    activeIssueKey.value != null
+      ? visibleAuditIssues.value.find((i) => auditIssueKey(i) === activeIssueKey.value)
+      : null
+  if (!issue) {
+    ElMessage.info('请先在「发现的问题」中点击一条问题')
+    return
+  }
+  chatAttachIssue.value = issue
+}
+
+function clearChatAttachIssue() {
+  chatAttachIssue.value = null
+}
+
+function buildChatMessage(): string {
+  const parts: string[] = []
+  if (chatAttachFile.value && currentPath.value) {
+    parts.push(`【@文件 ${currentPath.value}】`)
+    if (!fileBinary.value && editorContent.value) {
+      const lines = editorContent.value.split('\n')
+      const snippet = lines.slice(0, 100).join('\n')
+      parts.push('```\n' + snippet + (lines.length > 100 ? '\n// …' : '') + '\n```')
+    }
+  }
+  if (chatAttachIssue.value) {
+    const issue = chatAttachIssue.value
+    parts.push(
+      `【@问题 ${issue.filePath}:${issue.line}】${issue.description}（${riskLevelLabel(issue.riskLevel)}）`,
+    )
+    if (issue.triggerSnippet) parts.push(`触发片段：\n${issue.triggerSnippet}`)
+  }
+  const body = chatInput.value.trim()
+  if (!parts.length) return body
+  return `${parts.join('\n\n')}\n\n${body}`
+}
+
 async function onSendChat() {
   if (!chatInput.value.trim() || !activeSessionId.value) return
   chatLoading.value = true
   try {
-    const reply = await sendChat(activeSessionId.value, chatInput.value.trim())
+    const payload = buildChatMessage()
+    const reply = await sendChat(activeSessionId.value, payload, buildWorkbenchContext())
     messages.value.push(reply.userMessage, reply.assistantMessage)
+    stashAgentActions(reply.assistantMessage.id, reply.actions)
     chatInput.value = ''
+    chatAttachFile.value = false
+    chatAttachIssue.value = null
     await loadSessions()
     await nextTick()
     chatBox.value?.scrollTo({ top: chatBox.value.scrollHeight, behavior: 'smooth' })
@@ -910,8 +1508,9 @@ async function onAiFixIssue(issue: AuditIssueItem) {
 
   chatLoading.value = true
   try {
-    const reply = await sendChat(activeSessionId.value!, prompt)
+    const reply = await sendChat(activeSessionId.value!, prompt, buildWorkbenchContext())
     messages.value.push(reply.userMessage, reply.assistantMessage)
+    stashAgentActions(reply.assistantMessage.id, reply.actions)
     chatInput.value = ''
     pendingAiFixByMessageId.value = new Map(pendingAiFixByMessageId.value).set(
       reply.assistantMessage.id,
@@ -974,7 +1573,7 @@ async function onAdoptAiFix(msg: ChatMessage) {
   editorContent.value = result.content
   fixStepApplied.value = true
   clearAiFixPending(msg.id)
-  ElMessage.success('已写入编辑器，请确认 Diff 后点「保存并刷新审计」')
+  ElMessage.success('已写入编辑器，先看「对比修改」，满意再点「保存并重新检查」')
   detailCollapsed.value = false
   scheduleAutoDiffPreview()
 }
@@ -993,11 +1592,23 @@ function onIgnoreWarningFromAi(msg: ChatMessage) {
 }
 
 async function onSandboxDemo() {
-  if (!runProfile.value || runProfile.value.capability === 'HEAVY') return
-  const cmd = sandboxCommand.value.trim() || 'mvn -q -DskipTests compile'
   sandboxRunLoading.value = true
   sandboxRunOutput.value = null
   try {
+    const link = await discoverDemoLink(projectId.value, sourceUrl.value)
+    demoLinkHint.value = link
+    if (link.found && link.url) {
+      window.open(link.url, '_blank', 'noopener,noreferrer')
+      ElMessage.success(link.message || `已打开演示：${link.label || link.url}`)
+      return
+    }
+
+    if (!runProfile.value || runProfile.value.capability === 'HEAVY') {
+      ElMessage.warning(link.message || '未找到文档中的演示链接；重型项目不支持沙箱编译演示')
+      return
+    }
+
+    const cmd = sandboxCommand.value.trim() || 'mvn -q -DskipTests compile'
     sandboxRunOutput.value = await runSandboxDemo(projectId.value, cmd)
     if (sandboxRunOutput.value.success) {
       ElMessage.success(sandboxRunOutput.value.message)
@@ -1175,15 +1786,27 @@ watch(savedContent, () => {
   scheduleAutoDiffPreview()
 })
 
+function tryStartWorkbenchTour() {
+  if (workbenchTourTriggered.value || loading.value || !isWorkbenchTourPending()) return
+  workbenchTourTriggered.value = true
+  void nextTick().then(() => {
+    setTimeout(() => {
+      showWorkbenchTour.value = true
+    }, 500)
+  })
+}
+
 async function resetWorkbenchForProject() {
   auditIssues.value = []
   auditScanNote.value = ''
+  auditScanTruncated.value = false
   fixRecords.value = []
   activeFixId.value = null
   diffPreview.value = null
   hitlState.value = null
   fixStepApplied.value = false
   pendingAiFixByMessageId.value = new Map()
+  pendingAgentActionsByMessageId.value = new Map()
   activeIssueKey.value = null
   activeFocusLine.value = null
   currentPath.value = ''
@@ -1198,14 +1821,21 @@ async function resetWorkbenchForProject() {
   loadIgnoredIssues()
 }
 
-watch(projectId, async (id, prev) => {
-  if (prev === undefined || id === prev) return
-  await resetWorkbenchForProject()
-  await loadProject()
-  await loadSessions()
-  await loadFixRecords()
-  await loadHitlState()
-})
+watch(
+  () => routeProjectId(),
+  async (id, prev) => {
+    if (id == null) return
+    const prevId = prev ?? 0
+    const switching = prevId > 0 && prevId !== id
+    projectId.value = id
+    if (!switching) return
+    await resetWorkbenchForProject()
+    await loadProject()
+    await loadSessions()
+    await loadFixRecords()
+    await loadHitlState()
+  },
+)
 
 watch(chatLoading, async (loading) => {
   if (!loading) return
@@ -1216,20 +1846,32 @@ watch(chatLoading, async (loading) => {
 onMounted(async () => {
   updateLayout()
   window.addEventListener('resize', onResize)
-  if (!Number.isFinite(projectId.value) || projectId.value <= 0) {
+  const id = routeProjectId()
+  if (id == null) {
     router.replace('/import')
     return
   }
+  projectId.value = id
+  applyWorkbenchSettingsDefaults()
   await loadProject()
   loadDismissedFixes()
   loadIgnoredIssues()
   await loadSessions()
   await loadFixRecords()
   await loadHitlState()
+  tryStartWorkbenchTour()
+})
+
+onActivated(() => {
+  updateLayout()
+  const id = routeProjectId()
+  if (id != null) projectId.value = id
+  tryStartWorkbenchTour()
 })
 
 onUnmounted(() => {
   window.removeEventListener('resize', onResize)
+  stopTaskProgressTimer()
 })
 </script>
 
@@ -1250,7 +1892,7 @@ onUnmounted(() => {
       </div>
       <div class="wb-actions">
         <el-button data-tour="wb-audit" :icon="Search" type="primary" :loading="auditLoading" @click="onRunAudit">
-          运行审计
+          检查代码
         </el-button>
         <el-button :loading="archLoading" @click="onLoadArchitecture">架构图</el-button>
         <el-button
@@ -1260,7 +1902,7 @@ onUnmounted(() => {
           :icon="ChatDotRound"
           @click="openChatPanel"
         >
-          AI 分析
+          AI 助手
         </el-button>
         <el-dropdown trigger="click">
           <el-button>
@@ -1295,11 +1937,40 @@ onUnmounted(() => {
       </div>
     </header>
 
-    <div v-if="!hintCollapsed" class="workflow-hint glass-panel">
-      <span>推荐流程：① 运行审计 → ② 查看架构图 → ③ 生成修复建议 → ④ 人工确认（HITL）→ ⑤ 下载或继续对话</span>
-      <el-button size="small" link type="primary" @click="hintCollapsed = true">收起</el-button>
+    <div class="wb-status-bar glass-panel">
+      <nav class="wb-status-bar__crumb" aria-label="当前位置">
+        <span class="wb-status-bar__project">{{ projectName || `项目 #${projectId}` }}</span>
+        <template v-if="pathBreadcrumbs.length">
+          <span v-for="(seg, idx) in pathBreadcrumbs" :key="`${seg}-${idx}`" class="wb-status-bar__seg">
+            <span class="wb-status-bar__sep">/</span>{{ seg }}
+          </span>
+        </template>
+        <span v-else class="wb-status-bar__placeholder">未选择文件</span>
+      </nav>
+      <div class="wb-status-bar__meta">
+        <el-tag
+          v-for="chip in statusBarChips"
+          :key="chip.key"
+          size="small"
+          :type="chip.type"
+          effect="plain"
+          class="wb-status-chip"
+        >
+          {{ chip.label }}
+        </el-tag>
+        <span v-if="lastActivityAt" class="wb-status-bar__time" :title="lastActivityLabel">
+          {{ lastActivityLabel }} · {{ formatActivityTime(lastActivityAt) }}
+        </span>
+      </div>
     </div>
-    <button v-else type="button" class="workflow-hint-toggle glass-panel" @click="hintCollapsed = false">
+
+    <Transition name="cw-collapse">
+      <div v-if="!hintCollapsed" class="workflow-hint glass-panel">
+        <span>推荐流程：① 检查代码 → ② 看架构图 → ③ 获取改法建议 → ④ 你确认后再保存 → ⑤ 下载或继续和 AI 聊</span>
+        <el-button size="small" class="wb-btn-text" @click="hintCollapsed = true">收起</el-button>
+      </div>
+    </Transition>
+    <button v-if="hintCollapsed" type="button" class="workflow-hint-toggle glass-panel" @click="hintCollapsed = false">
       显示推荐流程
     </button>
 
@@ -1314,7 +1985,7 @@ onUnmounted(() => {
         <span>架构图（辅助分析，需人工确认）</span>
         <div class="panel-head-actions">
           <span class="arch-stats">{{ archStats }}</span>
-          <el-button size="small" link @click="archCollapsed = !archCollapsed">
+          <el-button size="small" class="wb-btn-text" @click="archCollapsed = !archCollapsed">
             {{ archCollapsed ? '展开' : '收起' }}
           </el-button>
         </div>
@@ -1328,9 +1999,9 @@ onUnmounted(() => {
           <el-button size="small" @click="zoomArch(-0.15)">缩小</el-button>
           <span class="arch-zoom-label">{{ Math.round(archZoom * 100) }}%</span>
           <el-button size="small" @click="zoomArch(0.15)">放大</el-button>
-          <el-button size="small" link type="primary" @click="archZoom = 1">重置</el-button>
+          <el-button size="small" class="wb-btn-text" @click="archZoom = 1">重置</el-button>
           <el-button size="small" :icon="Download" @click="downloadArchSvg">下载 SVG</el-button>
-          <el-button size="small" link type="primary" @click="downloadArchSource">下载 Mermaid</el-button>
+          <el-button size="small" class="wb-btn-text" @click="downloadArchSource">下载 Mermaid</el-button>
         </div>
         <div class="arch-svg-wrap">
           <div class="arch-svg-inner" :style="{ transform: `scale(${archZoom})` }" v-html="archSvg" />
@@ -1346,20 +2017,22 @@ onUnmounted(() => {
             {{ runCapabilityLabel(runProfile.capability) }}
           </el-tag>
         </div>
-        <el-button size="small" link type="primary" @click="runPanelCollapsed = !runPanelCollapsed">
+        <el-button size="small" class="wb-btn-text" @click="runPanelCollapsed = !runPanelCollapsed">
           {{ runPanelCollapsed ? '展开' : '收起' }}
         </el-button>
       </div>
       <template v-if="!runPanelCollapsed">
         <p class="run-summary">{{ runProfile.summary }}</p>
-        <div v-if="runProfile.capability !== 'HEAVY'" class="sandbox-check">
-          <el-input
-            v-model="sandboxCommand"
-            size="small"
-            placeholder="如 mvn -q -DskipTests compile"
-            class="sandbox-check__input"
-          />
-          <el-button size="small" :loading="sandboxLoading" @click="onValidateSandbox">校验</el-button>
+        <div class="sandbox-check">
+          <template v-if="runProfile.capability !== 'HEAVY'">
+            <el-input
+              v-model="sandboxCommand"
+              size="small"
+              placeholder="如 mvn -q -DskipTests compile"
+              class="sandbox-check__input"
+            />
+            <el-button size="small" :loading="sandboxLoading" @click="onValidateSandbox">校验</el-button>
+          </template>
           <el-button size="small" type="primary" :loading="sandboxRunLoading" @click="onSandboxDemo">
             在线演示
           </el-button>
@@ -1367,6 +2040,11 @@ onUnmounted(() => {
             {{ sandboxResult.allowed ? '通过' : '拒绝' }}
           </el-tag>
         </div>
+        <p v-if="demoLinkHint?.found && demoLinkHint.url" class="sandbox-msg">
+          文档演示：
+          <a :href="demoLinkHint.url" target="_blank" rel="noopener">{{ demoLinkHint.label || demoLinkHint.url }}</a>
+          <span class="sandbox-msg__source">（{{ demoLinkHint.sourceFile }}）</span>
+        </p>
         <p v-if="sandboxResult" class="sandbox-msg">{{ sandboxResult.message }}</p>
         <pre v-if="sandboxRunOutput" class="sandbox-output">{{ sandboxRunOutput.stdout || sandboxRunOutput.stderr || sandboxRunOutput.message }}</pre>
         <pre class="deploy-guide">{{ runProfile.deployGuideMarkdown }}</pre>
@@ -1382,7 +2060,7 @@ onUnmounted(() => {
           </el-tag>
           <span class="eval-score">综合 {{ evalReport.overallScore.toFixed(1) }}</span>
         </div>
-        <el-button size="small" link type="primary" @click="evalPanelCollapsed = !evalPanelCollapsed">
+        <el-button size="small" class="wb-btn-text" @click="evalPanelCollapsed = !evalPanelCollapsed">
           {{ evalPanelCollapsed ? '展开' : '收起' }}
         </el-button>
       </div>
@@ -1393,27 +2071,34 @@ onUnmounted(() => {
       <el-radio-group v-model="mobilePane" size="small">
         <el-radio-button label="tree">文件树</el-radio-button>
         <el-radio-button label="editor">代码</el-radio-button>
-        <el-radio-button v-if="showChatPanel" label="chat">AI 分析</el-radio-button>
+        <el-radio-button v-if="showChatPanel" label="chat">AI 助手</el-radio-button>
       </el-radio-group>
     </div>
 
     <div
       class="wb-grid"
-      :class="{ 'wb-grid--stacked': isNarrow }"
-      :style="gridStyle"
+      :class="{ 'wb-grid--stacked': isNarrow, 'wb-grid--row': !isNarrow }"
     >
       <aside
         v-show="!isNarrow || mobilePane === 'tree'"
         class="panel glass-panel tree-panel"
         :class="{ 'tree-panel--collapsed': treeCollapsed }"
+        :style="treeAsideStyle"
         data-tour="wb-tree"
       >
-        <div class="panel-head panel-head--split">
-          <span v-if="!treeCollapsed"><el-icon><FolderOpened /></el-icon> 文件树</span>
-          <span v-else class="tree-collapsed-label">文件</span>
-          <el-button size="small" link @click="treeCollapsed = !treeCollapsed">
-            {{ treeCollapsed ? '→' : '← 收起' }}
-          </el-button>
+        <div class="panel-head panel-head--tree">
+          <span v-if="!treeCollapsed" class="panel-head__title">
+            <el-icon><FolderOpened /></el-icon> 文件树
+          </span>
+          <el-tooltip :content="treeCollapsed ? '展开文件树' : '收起文件树'" placement="right">
+            <el-button
+              size="small"
+              circle
+              class="tree-toggle-btn"
+              :icon="treeCollapsed ? DArrowRight : DArrowLeft"
+              @click="treeCollapsed = !treeCollapsed"
+            />
+          </el-tooltip>
         </div>
         <template v-if="!treeCollapsed">
           <el-input v-model="treeFilter" placeholder="过滤文件..." size="small" class="tree-filter" clearable />
@@ -1427,15 +2112,22 @@ onUnmounted(() => {
               @node-click="onTreeClick"
             >
               <template #default="{ data }">
-                <span class="tree-node-row">
+                <span class="tree-node-row" :class="{ 'tree-node-row--has-issue': treeIssueCount(data.path) > 0 }">
+                  <span
+                    v-if="treeIssueCount(data.path)"
+                    class="tree-density-bar"
+                    :class="riskIssueClass(worstRiskByPath[data.path] ?? 'LOW')"
+                    :style="{ width: treeDensityWidth(data.path) }"
+                    :title="`${treeIssueCount(data.path)} 个问题`"
+                  />
                   <span class="tree-node-label">{{ data.label }}</span>
                   <span
-                    v-if="data.isLeaf && issueCountByPath[data.path]"
+                    v-if="treeIssueCount(data.path)"
                     class="tree-issue-badge"
                     :class="riskIssueClass(worstRiskByPath[data.path] ?? 'LOW')"
-                    :title="`${issueCountByPath[data.path]} 个审计问题`"
+                    :title="`${treeIssueCount(data.path)} 个问题`"
                   >
-                    {{ issueCountByPath[data.path] }}
+                    {{ treeIssueCount(data.path) }}
                   </span>
                 </span>
               </template>
@@ -1457,9 +2149,16 @@ onUnmounted(() => {
         data-tour="wb-editor"
       >
         <div class="panel-head editor-head">
-          <span class="mono">{{ currentPath || '选择左侧文件查看源码' }}</span>
+          <span class="mono editor-path">{{ currentPath || '选择左侧文件查看源码' }}</span>
           <div class="editor-actions">
             <el-tag v-if="fileDirty" size="small" type="warning">未保存</el-tag>
+            <el-button
+              v-if="fileDirty"
+              size="small"
+              @click="onRevertEditorChanges"
+            >
+              撤销修改
+            </el-button>
             <el-button
               size="small"
               type="primary"
@@ -1475,43 +2174,56 @@ onUnmounted(() => {
               :disabled="!currentPath || fileBinary"
               @click="onPreviewDiff"
             >
-              预览 Diff
+              对比修改
             </el-button>
-            <el-tooltip content="对比「已保存版本」与「编辑器当前内容」，见帮助 → 预览 Diff" placement="bottom">
+            <el-tooltip content="对比「已保存版本」和「你现在改的内容」" placement="bottom">
               <span class="diff-help-icon">?</span>
             </el-tooltip>
             <el-button
               data-tour="wb-fix"
               size="small"
               :loading="fixLoading"
-              :disabled="!auditIssues.length"
+              :disabled="!suggestibleCount"
               @click="onSuggestFixes"
             >
-              生成修复建议
+              获取改法建议{{ suggestibleCount ? ` (${suggestibleCount})` : '' }}
             </el-button>
-            <el-button
-              v-if="auditIssues.length || fixRecords.length"
-              size="small"
-              link
+            <el-dropdown
+              v-if="isJavaFile"
+              trigger="click"
+              @command="onJavadocCommand"
+            >
+              <el-button size="small" :loading="docGenLoading">
+                一键补充注释
+              </el-button>
+              <template #dropdown>
+                <el-dropdown-menu>
+                  <el-dropdown-item command="file">全文件</el-dropdown-item>
+                  <el-dropdown-item command="viewport">当前可见区域</el-dropdown-item>
+                  <el-dropdown-item command="selection">选中代码</el-dropdown-item>
+                </el-dropdown-menu>
+              </template>
+            </el-dropdown>
+            <button
+              v-if="visibleAuditIssues.length || fixRecords.length"
+              type="button"
+              class="detail-toggle-btn"
               @click="detailCollapsed = !detailCollapsed"
             >
               {{ detailCollapsed ? '展开详情' : '收起详情' }}
-            </el-button>
+            </button>
           </div>
         </div>
-        <div v-if="auditScanNote" class="audit-scan-note glass-panel">
-          <el-icon><Search /></el-icon>
-          <span>{{ auditScanNote }}</span>
-        </div>
+        <el-alert
+          v-if="auditScanTruncated && auditScanNote"
+          class="audit-scan-alert"
+          type="warning"
+          :closable="false"
+          show-icon
+          :title="auditScanNote"
+        />
 
-        <div v-if="auditIssues.length" class="risk-legend">
-          <span class="risk-legend__title">行内标记：</span>
-          <span class="risk-legend__item risk-high">红 · 高（影响业务逻辑）</span>
-          <span class="risk-legend__item risk-medium">橙 · 中（质量/预发布风险）</span>
-          <span class="risk-legend__item risk-low">黄 · 低（规范性问题）</span>
-          <span class="risk-legend__item risk-fix">绿 · 当前修复建议行</span>
-        </div>
-        <div v-if="auditIssues.length || fixRecords.length" class="fix-workflow">
+        <div v-if="visibleAuditIssues.length || fixRecords.length" class="fix-workflow">
           <span
             v-for="step in fixWorkflowSteps"
             :key="step.key"
@@ -1526,19 +2238,19 @@ onUnmounted(() => {
         </div>
         <div v-if="fixBarFixRecord" class="fix-action-bar">
           <div class="fix-action-bar__head">
-            <span class="fix-action-bar__step">修复建议 · 步骤 ③</span>
+            <span class="fix-action-bar__step">改法建议 · 步骤 ③</span>
             <el-tag size="small" type="warning">{{ fixBarFixRecord.ruleId }}</el-tag>
             <span class="mono">第 {{ fixBarFixRecord.lineNo }} 行 · {{ fixBarFixRecord.filePath }}</span>
           </div>
           <p class="fix-action-bar__text">{{ fixBarFixRecord.suggestion }}</p>
           <p v-if="fixBarFixRecord.rationale" class="fix-action-bar__rationale">{{ fixBarFixRecord.rationale }}</p>
           <div class="fix-action-bar__actions">
-            <el-button type="primary" size="small" @click="onApplyFix">写入编辑器（应用建议）</el-button>
-            <el-button size="small" :loading="diffLoading" @click="onPreviewDiff">预览 Diff</el-button>
+            <el-button type="primary" size="small" @click="onApplyFix">一键写入编辑器</el-button>
+            <el-button size="small" :loading="diffLoading" @click="onPreviewDiff">对比修改</el-button>
             <el-button size="small" link type="info" @click="onDismissFix">放弃该条建议</el-button>
-            <router-link to="/help#diff" class="fix-action-bar__link">Diff 说明</router-link>
+            <router-link to="/help#diff" class="fix-action-bar__link">对比说明</router-link>
           </div>
-          <p class="fix-action-bar__hint">流程：应用或 AI 改 → 下方实时 Diff → 保存（自动刷新审计）→ HITL 确认</p>
+          <p class="fix-action-bar__hint">流程：应用或 AI 改 → 下方看改了什么 → 保存（会自动再检查一遍）→ 你确认</p>
         </div>
         <div v-if="currentPath" class="editor-wrap" :style="{ height: `${editorHeight}px` }">
           <CodeEditor
@@ -1549,11 +2261,12 @@ onUnmounted(() => {
             :issue-line-marks="issueLineMarks"
             :fix-highlight-line="fixHighlightLine"
             :focus-line="activeFocusLine"
+            @ignore-issue-line="ignoreIssuesAtLine"
           />
         </div>
         <div v-else class="editor-empty">
           <p>在左侧文件树点击文件，在此查看源码</p>
-          <p class="editor-empty__hint">点击文件夹名称可展开/收起；运行审计后，问题行会在编辑器中高亮</p>
+          <p class="editor-empty__hint">点击文件夹名称可展开/收起；检查代码后，有问题的行会在编辑器里标出来</p>
         </div>
         <div
           v-if="currentPath"
@@ -1561,9 +2274,10 @@ onUnmounted(() => {
           title="拖动调整代码区高度"
           @mousedown="startEditorResize"
         />
-        <div v-if="currentPath && fileDirty" class="diff-preview diff-preview--live">
+        <Transition name="cw-collapse">
+        <div v-if="showLiveDiffPanel" class="diff-preview diff-preview--live">
           <div class="panel-head panel-head--split">
-            <span>实时 Diff</span>
+            <span>改了什么（实时对比）</span>
             <span class="diff-preview__hint">
               {{ diffLoading ? '对比中…' : diffPreview?.changed ? '红色=已保存删除 · 绿色=当前新增' : '与已保存版本一致' }}
             </span>
@@ -1583,15 +2297,34 @@ onUnmounted(() => {
             </pre>
           </template>
           <div class="diff-preview__actions">
+            <el-button size="small" @click="onRevertEditorChanges">撤销修改</el-button>
             <el-button size="small" type="primary" :loading="saveLoading || auditRefreshing" @click="onSaveFile">
-              保存并刷新审计
+              保存并重新检查
             </el-button>
           </div>
         </div>
-        <div v-if="!detailCollapsed && auditIssues.length" class="audit-fix-zone">
+        </Transition>
+        <div v-if="!detailCollapsed && auditIssues.length && !visibleAuditIssues.length" class="audit-fix-zone audit-fix-zone--empty">
+          <p class="fix-hint">
+            当前问题均已忽略或隐藏。
+            <el-button size="small" class="wb-btn-text" @click="clearIgnoredIssues">恢复显示</el-button>
+          </p>
+        </div>
+        <div v-else-if="!detailCollapsed && visibleAuditIssues.length" class="audit-fix-zone">
           <div class="panel-head issue-head">
-            <span>审计问题 ↔ 修复建议</span>
+            <div class="issue-head__title">
+              <span>发现的问题 ↔ 改法建议</span>
+              <el-button
+                v-if="auditHistoryEntries.length >= 2"
+                size="small"
+                class="wb-btn-text"
+                @click="openAuditHistoryDialog"
+              >
+                与上次对比
+              </el-button>
+            </div>
             <div class="issue-head__actions">
+              <el-switch v-model="hideDependencyIssues" size="small" active-text="隐藏pom依赖提示" />
               <el-switch v-model="hideIgnorableCatch" size="small" active-text="隐藏空catch" />
               <el-button
                 v-if="ignorableCatchCount"
@@ -1610,9 +2343,24 @@ onUnmounted(() => {
               </el-radio-group>
             </div>
           </div>
-          <p v-if="!fixRecords.length" class="fix-hint">
-            先点编辑器上方「生成修复建议」；也可对单条问题用「AI 帮我改」，在右侧会话里确认后再写入编辑器
+          <p v-if="hideDependencyIssues && hiddenDependencyCount" class="fix-hint">
+            已隐藏 {{ hiddenDependencyCount }} 条 pom 依赖类提示（多为配置建议，通常不影响运行）。可关闭上方开关查看。
           </p>
+          <p v-if="!fixRecords.length" class="fix-hint">
+            先点「获取改法建议」，再点「一键写入编辑器」；也可对单条问题点「AI 帮我改」
+          </p>
+          <div v-if="batchFixRuleGroups.length" class="batch-fix-bar">
+            <span class="batch-fix-bar__label">同类批量建议</span>
+            <el-button
+              v-for="[ruleId, issues] in batchFixRuleGroups.slice(0, 5)"
+              :key="ruleId"
+              size="small"
+              :loading="fixLoading"
+              @click="onBatchSuggestFixes(ruleId)"
+            >
+              {{ ruleId }} · {{ issues.length }} 条
+            </el-button>
+          </div>
           <div
             v-for="issue in filteredAuditIssues.slice(0, 20)"
             :key="auditIssueKey(issue)"
@@ -1624,24 +2372,69 @@ onUnmounted(() => {
                 <el-tag size="small" :type="riskTagType(issue.riskLevel)" :class="riskIssueClass(issue.riskLevel)">
                   {{ riskLevelShort(issue.riskLevel) }}
                 </el-tag>
-                <span class="mono">{{ issue.filePath }}:{{ issue.line }}</span>
-                <el-button size="small" link type="warning" @click.stop="ignoreIssue(issue)">忽略</el-button>
+                <el-tag v-if="isDependencyConfigIssue(issue)" size="small" type="info">配置</el-tag>
+                <span class="mono audit-fix-pair__path" :title="`${issue.filePath}:${issue.line}`">
+                  {{
+                    isIssueExpanded(auditIssueKey(issue)) || !issueNeedsCollapse(issue)
+                      ? `${issue.filePath}:${issue.line}`
+                      : `${formatAuditPath(issue.filePath)}:${issue.line}`
+                  }}
+                </span>
+                <button
+                  v-if="issueNeedsCollapse(issue)"
+                  type="button"
+                  class="audit-action-btn audit-action-btn--toggle"
+                  @click.stop="toggleIssueExpanded(auditIssueKey(issue))"
+                >
+                  {{ isIssueExpanded(auditIssueKey(issue)) ? '收起' : '展开' }}
+                </button>
+                <button
+                  type="button"
+                  class="audit-action-btn audit-action-btn--ignore"
+                  @click.stop="ignoreIssue(issue)"
+                >
+                  忽略
+                </button>
               </div>
-              <p class="audit-fix-pair__desc">{{ issue.description }}</p>
-              <p v-if="issue.triggerSnippet" class="audit-fix-pair__snippet mono">{{ issue.triggerSnippet }}</p>
+              <p class="audit-fix-pair__desc">
+                {{
+                  isIssueExpanded(auditIssueKey(issue)) || !shouldCollapseAuditText(issue.description, 88)
+                    ? issue.description
+                    : `${issue.description.slice(0, 88)}…`
+                }}
+              </p>
+              <p
+                v-if="issue.triggerSnippet && (isIssueExpanded(auditIssueKey(issue)) || !shouldCollapseAuditText(issue.triggerSnippet, 100))"
+                class="audit-fix-pair__snippet mono"
+              >
+                {{ issue.triggerSnippet }}
+              </p>
+              <p
+                v-else-if="issue.triggerSnippet && shouldCollapseAuditText(issue.triggerSnippet, 100)"
+                class="audit-fix-pair__snippet audit-fix-pair__snippet--folded mono"
+              >
+                {{ issue.triggerSnippet.slice(0, 100) }}…
+                <button
+                  type="button"
+                  class="audit-action-btn audit-action-btn--toggle audit-action-btn--inline"
+                  @click.stop="toggleIssueExpanded(auditIssueKey(issue))"
+                >
+                  查看代码片段
+                </button>
+              </p>
             </div>
             <div v-if="fixByIssueKey.get(auditIssueKey(issue))" class="audit-fix-pair__fix">
-              <div class="audit-fix-pair__fix-label">对应修复建议</div>
+              <div class="audit-fix-pair__fix-label">对应改法建议</div>
               <p>{{ fixByIssueKey.get(auditIssueKey(issue))!.suggestion }}</p>
               <div class="audit-fix-pair__fix-actions">
                 <el-button size="small" type="primary" @click="onSelectFixRecord(fixByIssueKey.get(auditIssueKey(issue))!)">
-                  定位并应用
+                  一键写入编辑器
                 </el-button>
                 <el-button size="small" @click="onAiFixIssue(issue)">AI 帮我改</el-button>
               </div>
             </div>
             <div v-else class="audit-fix-pair__fix audit-fix-pair__fix--empty">
-              暂无修复建议 · <el-button size="small" link type="primary" @click="onAiFixIssue(issue)">让 AI 分析</el-button>
+              暂无改法建议 · <el-button size="small" class="wb-btn-text" @click="onAiFixIssue(issue)">让 AI 分析</el-button>
             </div>
           </div>
           <p v-if="filteredAuditIssues.length > 20" class="fix-hint">
@@ -1650,7 +2443,7 @@ onUnmounted(() => {
         </div>
 
         <div v-if="!detailCollapsed && activeFixId && fixRecords.length" class="fix-panel">
-          <div class="panel-head">人工确认 HITL（当前修复建议）</div>
+          <div class="panel-head">请你确认（当前改法建议）</div>
           <div v-if="hitlState" class="hitl-bar">
             <span>轮次 {{ hitlState.round }}</span>
             <span>状态 {{ hitlStatusLabel(hitlState.lastStatus) }}</span>
@@ -1677,15 +2470,17 @@ onUnmounted(() => {
         @mousedown="startChatResize"
       />
 
+      <Transition name="cw-slide-x">
       <aside
         v-show="showChatPanel && (!isNarrow || mobilePane === 'chat')"
         class="panel glass-panel chat-panel"
+        :style="chatAsideStyle"
       >
         <div class="panel-head chat-head">
-          <span><el-icon><ChatDotRound /></el-icon> AI 分析</span>
+          <span><el-icon><ChatDotRound /></el-icon> AI 助手</span>
           <div class="chat-head-actions">
-            <el-button size="small" link type="primary" @click="onNewSession">新建</el-button>
-            <el-button size="small" link @click="showChatPanel = false">收起</el-button>
+            <el-button size="small" class="wb-btn-text" @click="onNewSession">新建</el-button>
+            <el-button size="small" class="wb-btn-text" @click="showChatPanel = false">收起</el-button>
           </div>
         </div>
         <div class="session-tabs">
@@ -1707,54 +2502,118 @@ onUnmounted(() => {
         </div>
         <div ref="chatBox" class="chat-messages">
           <div v-if="!messages.length && !chatLoading" class="chat-empty">
-            <p>AI 会先读 README、pom 等文档，再结合源码判断项目定位（游戏/工具/系统等）。</p>
+            <p>可问风险与改法；也可说「给选中方法加 Javadoc」，确认后由 Agent 调用接口写入编辑器。</p>
             <el-button type="primary" :loading="chatLoading" @click="onOnboard">
-              一键项目分析
+              快速评审
             </el-button>
           </div>
           <div
-            v-for="msg in displayMessages"
+            v-for="msg in messages"
             :key="msg.id"
             class="chat-bubble"
             :class="`chat-bubble--${msg.role}`"
           >
-            <span class="chat-role">{{ msg.role === 'user' ? '你' : msg.role === 'assistant' ? 'AI 分析' : '系统' }}</span>
-            <div v-if="msg.sections && !isAiFixPendingMessage(msg.id)" class="chat-sections">
-              <div v-for="(sec, idx) in msg.sections" :key="idx" class="chat-section">
-                <div class="chat-section__title">{{ sec.title }}</div>
-                <div class="chat-section__body">{{ sec.body }}</div>
+            <span class="chat-role">{{ msg.role === 'user' ? '你' : msg.role === 'assistant' ? '分析师' : '系统' }}</span>
+            <div class="chat-content">{{ msg.content }}</div>
+            <div
+              v-if="msg.role === 'assistant' && agentActionsForMessage(msg.id).length"
+              class="chat-agent-actions"
+            >
+              <p class="chat-agent-actions__hint">Agent 提议（需你确认后才会改编辑器，不会自动保存）</p>
+              <div
+                v-for="(action, idx) in agentActionsForMessage(msg.id)"
+                :key="`${msg.id}-${idx}`"
+                class="chat-agent-action-row"
+              >
+                <template v-if="action.type === 'CLARIFY'">
+                  <p class="chat-agent-clarify-q">{{ action.clarifyQuestion || action.summary }}</p>
+                  <div class="chat-agent-clarify-options">
+                    <el-button
+                      v-for="opt in action.options ?? []"
+                      :key="opt.id"
+                      size="small"
+                      @click="onClarifyOption(msg, opt)"
+                    >
+                      {{ opt.label }}
+                    </el-button>
+                  </div>
+                </template>
+                <template v-else>
+                  <span class="chat-agent-action-summary">{{ action.summary }}</span>
+                  <span v-if="action.type === 'JAVADOC'" class="chat-agent-action-meta">
+                    {{ agentScopeLabel(action.scope ?? 'file') }}
+                  </span>
+                  <span v-else-if="action.type === 'NAVIGATE'" class="chat-agent-action-meta">
+                    {{ action.symbol || action.filePath }}
+                  </span>
+                  <el-button size="small" type="primary" @click="onExecuteAgentAction(msg, action)">
+                    {{ action.type === 'NAVIGATE' ? '跳转' : '执行' }}
+                  </el-button>
+                </template>
               </div>
+              <el-button
+                v-if="agentActionsForMessage(msg.id).length"
+                class="chat-agent-dismiss"
+                size="small"
+                link
+                @click="clearAgentActions(msg.id)"
+              >
+                忽略全部提议
+              </el-button>
             </div>
-            <div v-else class="chat-content">{{ msg.content }}</div>
             <div
               v-if="msg.role === 'assistant' && isAiFixPendingMessage(msg.id)"
               class="chat-ai-fix-actions"
             >
-              <p class="chat-ai-fix-actions__hint">请确认是否采用 AI 修改（写入后可预览 Diff / 保存 / HITL）</p>
+              <p class="chat-ai-fix-actions__hint">请确认是否采用 AI 的修改（写入后可对比、保存、再请你确认）</p>
               <el-button size="small" type="primary" @click="onAdoptAiFix(msg)">采用 AI 修改</el-button>
               <el-button size="small" link type="warning" @click="onIgnoreWarningFromAi(msg)">忽略此警告</el-button>
               <el-button size="small" link @click="onSkipAiFix(msg)">暂不处理</el-button>
             </div>
           </div>
           <div v-if="chatLoading" class="chat-bubble chat-bubble--assistant chat-bubble--loading">
-            <span class="chat-role">AI 分析</span>
+            <span class="chat-role">分析师</span>
             <div class="chat-typing" aria-hidden="true">
               <span /><span /><span />
             </div>
-            <p class="chat-loading-hint">正在阅读文档与源码…</p>
+            <p class="chat-loading-hint">正在阅读…</p>
           </div>
         </div>
         <div class="chat-input">
+          <div class="chat-ref-bar">
+            <el-button
+              size="small"
+              :type="chatAttachFile ? 'primary' : 'default'"
+              plain
+              @click="toggleChatAttachFile"
+            >
+              @文件
+            </el-button>
+            <el-button
+              size="small"
+              :type="chatAttachIssue ? 'primary' : 'default'"
+              plain
+              @click="attachChatActiveIssue"
+            >
+              @问题
+            </el-button>
+            <span v-if="chatAttachFile && currentPath" class="chat-ref-chip mono">📄 {{ currentPath }}</span>
+            <span v-if="chatAttachIssue" class="chat-ref-chip">
+              ⚠ {{ chatAttachIssue.filePath }}:{{ chatAttachIssue.line }}
+              <button type="button" class="chat-ref-chip__clear" @click="clearChatAttachIssue">×</button>
+            </span>
+          </div>
           <el-input
             v-model="chatInput"
             type="textarea"
             :rows="3"
-            placeholder="询问项目结构、风险或改进建议..."
+            placeholder="问改法、加注释、解释代码；@文件 附带当前文件；选中行后可说「给这几行加注释」"
             @keydown.ctrl.enter="onSendChat"
           />
           <el-button type="primary" :loading="chatLoading" @click="onSendChat">发送 (Ctrl+Enter)</el-button>
         </div>
       </aside>
+      </Transition>
     </div>
 
     <InteractiveTour
@@ -1762,6 +2621,48 @@ onUnmounted(() => {
       :steps="workbenchTourSteps"
       :on-complete="completeWorkbenchTour"
     />
+
+    <TaskProgressBar
+      :visible="taskProgress.visible"
+      :title="taskProgress.title"
+      :percent="taskProgress.percent"
+      :stage="taskProgress.stage"
+    />
+
+    <el-dialog v-model="auditHistoryVisible" title="审计历史对比" width="560px" class="audit-history-dialog">
+      <template v-if="auditHistoryEntries.length >= 2 && auditHistoryCompare">
+        <p class="audit-history-meta">
+          对比
+          <strong>{{ formatHistoryTime(auditHistoryEntries[1].capturedAt) }}</strong>
+          （{{ auditHistoryEntries[1].total }} 条）
+          →
+          <strong>{{ formatHistoryTime(auditHistoryEntries[0].capturedAt) }}</strong>
+          （{{ auditHistoryEntries[0].total }} 条）
+        </p>
+        <div class="audit-history-stats">
+          <el-tag type="success" effect="plain">已消除 {{ auditHistoryCompare.removedKeys.length }}</el-tag>
+          <el-tag type="danger" effect="plain">新增 {{ auditHistoryCompare.addedKeys.length }}</el-tag>
+          <el-tag type="info" effect="plain">仍存在 {{ auditHistoryCompare.unchangedKeys.length }}</el-tag>
+        </div>
+        <div v-if="auditHistoryCompare.removedKeys.length" class="audit-history-block">
+          <p class="audit-history-block__title">已消除（最多展示 12 条）</p>
+          <ul class="audit-history-list">
+            <li v-for="k in auditHistoryCompare.removedKeys.slice(0, 12)" :key="'r-' + k">{{ k }}</li>
+          </ul>
+        </div>
+        <div v-if="auditHistoryCompare.addedKeys.length" class="audit-history-block">
+          <p class="audit-history-block__title">新增（最多展示 12 条）</p>
+          <ul class="audit-history-list">
+            <li v-for="k in auditHistoryCompare.addedKeys.slice(0, 12)" :key="'a-' + k">{{ k }}</li>
+          </ul>
+        </div>
+        <p v-if="!auditHistoryCompare.addedKeys.length && !auditHistoryCompare.removedKeys.length" class="fix-hint">
+          两次检查结果的问题集合完全一致。
+        </p>
+      </template>
+      <p v-else class="fix-hint">至少完成两次「检查代码」后，可在此查看与上次的差异（记录保存在本机浏览器）。</p>
+    </el-dialog>
+
   </div>
 </template>
 
@@ -1806,7 +2707,7 @@ onUnmounted(() => {
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid var(--cw-border);
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--cw-surface-subtle);
   font-size: 12px;
   color: var(--cw-text-muted);
 }
@@ -1818,7 +2719,7 @@ onUnmounted(() => {
 }
 
 .wb-repo a {
-  color: var(--cw-accent);
+  color: var(--cw-primary);
   text-decoration: none;
 }
 
@@ -1830,6 +2731,66 @@ onUnmounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.wb-status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 16px;
+  flex-wrap: wrap;
+  font-size: 12px;
+}
+
+.wb-status-bar__crumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0;
+  min-width: 0;
+  color: var(--cw-text-secondary);
+}
+
+.wb-status-bar__project {
+  font-weight: 600;
+  color: var(--cw-text);
+  margin-right: 4px;
+}
+
+.wb-status-bar__seg {
+  color: var(--cw-text-muted);
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wb-status-bar__sep {
+  margin: 0 4px;
+  opacity: 0.45;
+}
+
+.wb-status-bar__placeholder {
+  color: var(--cw-text-muted);
+  margin-left: 4px;
+}
+
+.wb-status-bar__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.wb-status-chip {
+  font-weight: 500;
+}
+
+.wb-status-bar__time {
+  color: var(--cw-text-muted);
+  white-space: nowrap;
 }
 
 .dropdown-caret {
@@ -1862,7 +2823,7 @@ onUnmounted(() => {
 }
 
 .workflow-hint-toggle:hover {
-  color: var(--cw-accent);
+  color: var(--cw-primary);
 }
 
 .score-bar {
@@ -1875,7 +2836,7 @@ onUnmounted(() => {
 
 .score-value {
   font-size: 22px;
-  color: var(--cw-accent);
+  color: var(--cw-primary);
 }
 
 .score-summary {
@@ -1929,7 +2890,7 @@ onUnmounted(() => {
   padding: 12px;
   border-radius: 10px;
   border: 1px solid var(--cw-border);
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--cw-surface-subtle);
   max-height: 420px;
 }
 
@@ -1943,7 +2904,8 @@ onUnmounted(() => {
 }
 
 .wb-grid--stacked {
-  grid-template-columns: 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
@@ -1978,7 +2940,7 @@ onUnmounted(() => {
   padding: 12px;
   border-radius: 10px;
   border: 1px solid var(--cw-border);
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--cw-surface-subtle);
   font-size: 12px;
   line-height: 1.55;
   white-space: pre-wrap;
@@ -1989,13 +2951,16 @@ onUnmounted(() => {
 .eval-score {
   margin-left: auto;
   font-size: 13px;
-  color: var(--cw-accent);
+  color: var(--cw-primary);
 }
 
 .issue-head {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
+  padding-bottom: 8px;
+  margin-bottom: 4px;
+  border-bottom: 1px dashed var(--cw-border);
 }
 
 .issue-head__actions {
@@ -2005,17 +2970,81 @@ onUnmounted(() => {
   gap: 10px;
 }
 
+.issue-head__title {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-weight: 600;
+}
+
+.batch-fix-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 10px;
+  padding: 8px 10px;
+  border-radius: var(--cw-radius-sm);
+  background: var(--cw-surface-subtle);
+  border: 1px dashed var(--cw-border);
+}
+
+.batch-fix-bar__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cw-text-secondary);
+}
+
+.audit-history-meta {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--cw-text-secondary);
+  line-height: 1.6;
+}
+
+.audit-history-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.audit-history-block__title {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cw-text-muted);
+}
+
+.audit-history-list {
+  margin: 0 0 12px;
+  padding-left: 18px;
+  font-size: 11px;
+  font-family: var(--cw-mono);
+  color: var(--cw-text-secondary);
+  line-height: 1.55;
+  max-height: 140px;
+  overflow: auto;
+}
+
 .audit-fix-zone {
   margin-top: 12px;
   max-height: 420px;
   overflow: auto;
+  padding: 12px;
+  border-radius: var(--cw-radius-sm);
+  border: 1px solid var(--cw-border);
+  background: var(--cw-bg-elevated);
 }
 
 .audit-fix-pair {
   margin-bottom: 12px;
   border-radius: 10px;
-  border: 1px solid var(--cw-border);
+  border: 1px solid var(--cw-border-strong);
   overflow: hidden;
+  background: var(--cw-bg-elevated);
+  box-shadow: var(--cw-shadow-sm);
 }
 
 .audit-fix-pair--active {
@@ -2023,10 +3052,103 @@ onUnmounted(() => {
   box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.2);
 }
 
+.audit-fix-zone--empty {
+  padding: 12px 14px;
+}
+
 .audit-fix-pair__issue {
   padding: 10px 12px;
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--cw-surface-subtle);
   cursor: pointer;
+}
+
+.audit-action-btn {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.audit-action-btn--toggle {
+  color: #434343;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+}
+
+.audit-action-btn--toggle:hover {
+  color: var(--cw-primary-active);
+  border-color: var(--cw-primary);
+  background: var(--cw-primary-bg);
+}
+
+.audit-action-btn--ignore {
+  color: #ad4e00;
+  background: #fff;
+  border: 1px solid #ffd591;
+}
+
+.audit-action-btn--ignore:hover {
+  color: #873800;
+  border-color: #ffa940;
+  background: #fff7e6;
+}
+
+.audit-action-btn--inline {
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.detail-toggle-btn {
+  flex-shrink: 0;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #434343;
+  background: #fff;
+  border: 1px solid #d9d9d9;
+  border-radius: var(--cw-radius-sm);
+  cursor: pointer;
+  font-family: inherit;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.detail-toggle-btn:hover {
+  color: var(--cw-primary-active);
+  border-color: var(--cw-primary);
+  background: var(--cw-primary-bg);
+}
+
+html.dark .detail-toggle-btn {
+  color: rgba(255, 255, 255, 0.85);
+  background: #262626;
+  border-color: #424242;
+}
+
+html.dark .audit-action-btn--toggle {
+  color: rgba(255, 255, 255, 0.85);
+  background: #262626;
+  border-color: #424242;
+}
+
+html.dark .audit-action-btn--toggle:hover {
+  color: #69b1ff;
+  border-color: #177ddc;
+  background: rgba(22, 119, 255, 0.15);
+}
+
+html.dark .audit-action-btn--ignore {
+  color: #ffa940;
+  background: #262626;
+  border-color: rgba(250, 173, 20, 0.45);
+}
+
+html.dark .audit-action-btn--ignore:hover {
+  background: rgba(250, 173, 20, 0.12);
 }
 
 .audit-fix-pair__issue-head {
@@ -2035,6 +3157,15 @@ onUnmounted(() => {
   gap: 8px;
   flex-wrap: wrap;
   margin-bottom: 6px;
+}
+
+.audit-fix-pair__path {
+  flex: 1 1 160px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
 }
 
 .audit-fix-pair__desc {
@@ -2047,17 +3178,24 @@ onUnmounted(() => {
   margin: 8px 0 0;
   padding: 8px;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.25);
+  background: var(--cw-surface-code);
   font-size: 11px;
   line-height: 1.45;
-  color: #fca5a5;
+  color: var(--cw-diff-del);
   white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow: auto;
+}
+
+.audit-fix-pair__snippet--folded {
+  color: var(--cw-text-muted);
 }
 
 .audit-fix-pair__fix {
   padding: 10px 12px;
-  background: rgba(52, 211, 153, 0.08);
-  border-top: 1px solid rgba(52, 211, 153, 0.25);
+  background: var(--cw-fix-surface);
+  border-top: 1px solid var(--cw-fix-border);
   font-size: 13px;
   line-height: 1.55;
 }
@@ -2085,7 +3223,7 @@ onUnmounted(() => {
   padding: 10px;
   border-radius: 8px;
   border: 1px solid var(--cw-border);
-  background: rgba(15, 23, 42, 0.7);
+  background: var(--cw-surface-panel-strong);
   font-size: 11px;
   line-height: 1.45;
   max-height: 160px;
@@ -2094,10 +3232,34 @@ onUnmounted(() => {
 }
 
 .wb-grid {
-  display: grid;
-  grid-template-columns: 280px 5px minmax(0, 1fr) 5px 380px;
-  gap: 0 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.wb-grid--row {
+  display: flex;
+  flex-direction: row;
   align-items: stretch;
+  gap: 0 8px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.wb-grid--row > .editor-panel {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.wb-grid--row > .tree-panel,
+.wb-grid--row > .chat-panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.wb-grid--row > .col-resize-handle {
+  flex: 0 0 5px;
+  width: 5px;
 }
 
 .col-resize-handle {
@@ -2111,30 +3273,43 @@ onUnmounted(() => {
 
 .col-resize-handle:hover,
 .col-resize-handle:active {
-  background: rgba(34, 211, 238, 0.35);
+  background: var(--cw-primary-border);
+}
+
+.panel-head--tree {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  flex-shrink: 0;
+}
+
+.panel-head__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-toggle-btn {
+  flex-shrink: 0;
 }
 
 .tree-panel--collapsed {
-  padding: 10px 6px;
+  padding: 8px 4px;
+  overflow: hidden;
 }
 
-.tree-panel--collapsed .panel-head {
+.tree-panel--collapsed .panel-head--tree {
   flex-direction: column;
+  justify-content: flex-start;
   align-items: center;
-  gap: 6px;
   margin-bottom: 0;
-}
-
-.tree-collapsed-label {
-  writing-mode: vertical-rl;
-  font-size: 12px;
-  letter-spacing: 2px;
-}
-
-@media (max-width: 1100px) {
-  .wb-grid {
-    grid-template-columns: 1fr;
-  }
+  gap: 0;
 }
 
 .panel {
@@ -2172,7 +3347,33 @@ onUnmounted(() => {
   padding: 2px 0;
 }
 
+.tree-node-row--has-issue .tree-node-label {
+  font-weight: 500;
+}
+
+.tree-density-bar {
+  flex-shrink: 0;
+  max-width: 28px;
+  height: 12px;
+  border-radius: 2px;
+  opacity: 0.85;
+}
+
+.tree-density-bar.risk-high {
+  background: linear-gradient(90deg, var(--cw-risk-high), rgba(207, 19, 34, 0.35));
+}
+
+.tree-density-bar.risk-medium {
+  background: linear-gradient(90deg, var(--cw-risk-medium), rgba(212, 107, 8, 0.35));
+}
+
+.tree-density-bar.risk-low {
+  background: linear-gradient(90deg, var(--cw-risk-low), rgba(212, 177, 6, 0.3));
+}
+
 .tree-node-label {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2184,77 +3385,38 @@ onUnmounted(() => {
   height: 18px;
   padding: 0 5px;
   border-radius: 999px;
-  background: rgba(248, 113, 113, 0.2);
-  color: #fca5a5;
+  background: var(--cw-risk-high-bg);
+  color: var(--cw-risk-high);
   font-size: 11px;
   line-height: 18px;
   text-align: center;
 }
 
 .tree-issue-badge.risk-medium {
-  background: rgba(251, 146, 60, 0.22);
-  color: #fdba74;
+  background: var(--cw-risk-medium-bg);
+  color: var(--cw-risk-medium);
 }
 
 .tree-issue-badge.risk-low {
-  background: rgba(250, 204, 21, 0.18);
-  color: #fde047;
+  background: var(--cw-risk-low-bg);
+  color: var(--cw-risk-low);
 }
 
-.audit-scan-note {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  margin-bottom: 10px;
-  padding: 10px 12px;
-  font-size: 12px;
-  line-height: 1.55;
-  color: var(--cw-text-muted);
-  border: 1px solid rgba(251, 191, 36, 0.35);
-  background: rgba(251, 191, 36, 0.08);
-}
-
-.risk-legend {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
+.audit-scan-alert {
   margin-bottom: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px solid var(--cw-border);
-  font-size: 11px;
-  color: var(--cw-text-muted);
 }
 
-.risk-legend__title {
-  font-weight: 600;
-  color: var(--cw-text);
+.audit-scan-alert :deep(.el-alert__title) {
+  font-size: 12px;
+  line-height: 1.5;
 }
 
-.risk-legend__item {
-  padding: 2px 8px;
-  border-radius: 6px;
-}
-
-.risk-legend__item.risk-high {
-  background: rgba(239, 68, 68, 0.15);
-  color: #fca5a5;
-}
-
-.risk-legend__item.risk-medium {
-  background: rgba(249, 115, 22, 0.15);
-  color: #fdba74;
-}
-
-.risk-legend__item.risk-low {
-  background: rgba(234, 179, 8, 0.12);
-  color: #fde047;
-}
-
-.risk-legend__item.risk-fix {
-  background: rgba(52, 211, 153, 0.12);
-  color: #6ee7b7;
+.wb-btn-text {
+  --el-button-text-color: var(--cw-primary);
+  --el-button-hover-text-color: var(--cw-primary-hover);
+  --el-button-hover-bg-color: var(--cw-primary-bg);
+  --el-button-active-text-color: var(--cw-primary-active);
+  font-weight: 500;
 }
 
 .fix-workflow {
@@ -2268,26 +3430,27 @@ onUnmounted(() => {
   font-size: 11px;
   padding: 4px 8px;
   border-radius: 999px;
-  border: 1px solid var(--cw-border);
+  border: 1px solid var(--cw-workflow-border);
+  background: var(--cw-workflow-bg);
   color: var(--cw-text-muted);
 }
 
 .fix-workflow__step--done {
-  border-color: rgba(52, 211, 153, 0.4);
-  color: #6ee7b7;
-  background: rgba(52, 211, 153, 0.08);
+  border-color: #b7eb8f;
+  color: var(--cw-success);
+  background: #f6ffed;
 }
 
 .fix-workflow__step--current {
-  border-color: rgba(34, 211, 238, 0.5);
-  color: #67e8f9;
-  background: rgba(34, 211, 238, 0.1);
+  border-color: var(--cw-primary-border);
+  color: var(--cw-primary);
+  background: var(--cw-primary-bg);
 }
 
 .fix-action-bar__step {
   font-size: 11px;
   font-weight: 600;
-  color: var(--cw-accent);
+  color: var(--cw-primary);
   margin-right: 6px;
 }
 
@@ -2297,10 +3460,56 @@ onUnmounted(() => {
   color: var(--cw-text-muted);
 }
 
+.chat-agent-actions {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--cw-border);
+}
+
+.chat-agent-actions__hint {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--cw-text-muted);
+}
+
+.chat-agent-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.chat-agent-action-summary {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.chat-agent-action-meta {
+  font-size: 12px;
+  color: var(--cw-text-muted);
+}
+
+.chat-agent-clarify-q {
+  width: 100%;
+  margin: 0 0 6px;
+  font-size: 13px;
+}
+
+.chat-agent-clarify-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chat-agent-dismiss {
+  margin-top: 4px;
+}
+
 .chat-ai-fix-actions {
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px dashed rgba(34, 211, 238, 0.35);
+  border-top: 1px dashed var(--cw-primary-border);
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -2315,21 +3524,21 @@ onUnmounted(() => {
 }
 
 :deep(.el-tag.risk-high) {
-  --el-tag-bg-color: rgba(239, 68, 68, 0.15);
-  --el-tag-border-color: rgba(239, 68, 68, 0.45);
-  --el-tag-text-color: #fca5a5;
+  --el-tag-bg-color: var(--cw-risk-high-bg);
+  --el-tag-border-color: var(--cw-risk-high);
+  --el-tag-text-color: var(--cw-risk-high);
 }
 
 :deep(.el-tag.risk-medium) {
-  --el-tag-bg-color: rgba(249, 115, 22, 0.15);
-  --el-tag-border-color: rgba(249, 115, 22, 0.45);
-  --el-tag-text-color: #fdba74;
+  --el-tag-bg-color: var(--cw-risk-medium-bg);
+  --el-tag-border-color: var(--cw-risk-medium);
+  --el-tag-text-color: var(--cw-risk-medium);
 }
 
 :deep(.el-tag.risk-low) {
-  --el-tag-bg-color: rgba(234, 179, 8, 0.12);
-  --el-tag-border-color: rgba(234, 179, 8, 0.4);
-  --el-tag-text-color: #fde047;
+  --el-tag-bg-color: var(--cw-risk-low-bg);
+  --el-tag-border-color: var(--cw-risk-low);
+  --el-tag-text-color: var(--cw-risk-low);
 }
 
 :deep(.el-tree-node__content) {
@@ -2338,7 +3547,7 @@ onUnmounted(() => {
 }
 
 :deep(.el-tree-node__content:hover) {
-  background: rgba(34, 211, 238, 0.08);
+  background: var(--cw-primary-bg);
 }
 
 .editor-panel {
@@ -2382,7 +3591,7 @@ onUnmounted(() => {
 }
 
 .editor-resize-handle:hover {
-  background: rgba(34, 211, 238, 0.25);
+  background: var(--cw-primary-border);
 }
 
 .panel-head {
@@ -2403,6 +3612,15 @@ onUnmounted(() => {
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
+}
+
+.editor-path {
+  flex: 1 1 180px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .editor-actions {
@@ -2410,6 +3628,9 @@ onUnmounted(() => {
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
+  flex: 1 1 320px;
+  justify-content: flex-end;
+  max-width: 100%;
 }
 
 .fix-panel {
@@ -2441,7 +3662,7 @@ onUnmounted(() => {
 }
 
 .fix-item--active {
-  border-color: rgba(34, 211, 238, 0.45) !important;
+  border-color: var(--cw-primary) !important;
 }
 
 .fix-rationale {
@@ -2454,11 +3675,11 @@ onUnmounted(() => {
   padding: 10px;
   border-radius: 8px;
   border: 1px solid var(--cw-border);
-  background: rgba(15, 23, 42, 0.45);
+  background: var(--cw-surface-panel);
 }
 
 .diff-preview--live {
-  border-color: rgba(34, 211, 238, 0.35);
+  border-color: var(--cw-primary-border);
 }
 
 .diff-preview__empty {
@@ -2484,7 +3705,7 @@ onUnmounted(() => {
   margin: 0 0 8px;
   padding: 8px;
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.7);
+  background: var(--cw-surface-panel-strong);
   border: 1px solid var(--cw-border);
   font-size: 11px;
   line-height: 1.45;
@@ -2499,13 +3720,13 @@ onUnmounted(() => {
 }
 
 .diff-line--add {
-  color: #86efac;
-  background: rgba(52, 211, 153, 0.08);
+  color: var(--cw-diff-add);
+  background: var(--cw-diff-add-bg);
 }
 
 .diff-line--del {
-  color: #fca5a5;
-  background: rgba(248, 113, 113, 0.08);
+  color: var(--cw-diff-del);
+  background: var(--cw-diff-del-bg);
 }
 
 .diff-line--ctx {
@@ -2529,8 +3750,8 @@ onUnmounted(() => {
   margin-bottom: 10px;
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid rgba(52, 211, 153, 0.35);
-  background: rgba(52, 211, 153, 0.08);
+  border: 1px solid var(--cw-fix-border);
+  background: var(--cw-fix-surface);
 }
 
 .fix-action-bar__head {
@@ -2566,7 +3787,7 @@ onUnmounted(() => {
 .fix-action-bar__link {
   margin-left: auto;
   font-size: 12px;
-  color: var(--cw-accent);
+  color: var(--cw-primary);
   text-decoration: none;
 }
 
@@ -2591,7 +3812,7 @@ onUnmounted(() => {
   margin-bottom: 6px;
   border-radius: 8px;
   border: 1px solid var(--cw-border);
-  background: rgba(15, 23, 42, 0.5);
+  background: var(--cw-surface-subtle);
   color: var(--cw-text);
   cursor: pointer;
   font-size: 12px;
@@ -2659,13 +3880,14 @@ onUnmounted(() => {
 
 .session-tab__close:hover {
   opacity: 1;
-  background: rgba(248, 113, 113, 0.2);
-  color: #fca5a5;
+  background: var(--cw-risk-high-bg);
+  color: var(--cw-risk-high);
 }
 
 .session-tab.active {
-  color: var(--cw-accent);
-  border-color: var(--cw-border-strong);
+  color: var(--cw-primary);
+  border-color: var(--cw-primary-border);
+  background: var(--cw-primary-bg);
 }
 
 .chat-messages {
@@ -2694,15 +3916,17 @@ onUnmounted(() => {
   padding: 10px 12px;
   border-radius: 10px;
   border: 1px solid var(--cw-border);
-  background: rgba(15, 23, 42, 0.55);
+  background: var(--cw-bg-elevated);
 }
 
 .chat-bubble--assistant {
-  border-color: rgba(34, 211, 238, 0.25);
+  border-color: var(--cw-primary-border);
+  background: var(--cw-primary-bg);
 }
 
 .chat-bubble--user {
-  border-color: rgba(129, 140, 248, 0.25);
+  border-color: var(--cw-border);
+  background: var(--cw-surface-subtle);
 }
 
 .chat-role {
@@ -2730,14 +3954,14 @@ onUnmounted(() => {
 .chat-section {
   padding: 8px 10px;
   border-radius: 8px;
-  background: rgba(15, 23, 42, 0.35);
-  border: 1px solid rgba(148, 163, 184, 0.12);
+  background: var(--cw-surface-subtle);
+  border: 1px solid var(--cw-border);
 }
 
 .chat-section__title {
   font-size: 12px;
   font-weight: 600;
-  color: var(--cw-accent);
+  color: var(--cw-primary);
   margin-bottom: 4px;
 }
 
@@ -2761,7 +3985,7 @@ onUnmounted(() => {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--cw-accent);
+  background: var(--cw-primary);
   animation: chat-dot 1.2s infinite ease-in-out;
 }
 
@@ -2792,9 +4016,43 @@ onUnmounted(() => {
   color: var(--cw-text-muted);
 }
 
+.chat-ref-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.chat-ref-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--cw-primary-bg);
+  border: 1px solid var(--cw-primary-border);
+  font-size: 11px;
+  color: var(--cw-primary-active);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-ref-chip__clear {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+  font-size: 14px;
+  line-height: 1;
+}
+
 .chat-input {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
+
 </style>

@@ -9,10 +9,13 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
@@ -68,6 +71,7 @@ public class SandboxRunner {
         builder.command(shellCommand(normalized));
         builder.directory(workDir.toFile());
         builder.redirectErrorStream(false);
+        applySandboxEnv(builder.environment());
 
         try {
             Process process = builder.start();
@@ -83,7 +87,7 @@ public class SandboxRunner {
             String out = readStream(process.getInputStream());
             String err = readStream(process.getErrorStream());
             long duration = System.currentTimeMillis() - started;
-            String msg = code == 0 ? "演示执行完成" : "命令退出码 " + code;
+            String msg = buildExitMessage(code, normalized, err);
             return new SandboxRunResult(code == 0, code, out, err, duration, msg);
         } catch (IOException | InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -111,7 +115,37 @@ public class SandboxRunner {
         if (isWindows()) {
             return List.of("cmd.exe", "/c", commandLine);
         }
-        return List.of("sh", "-c", commandLine);
+        return List.of("bash", "-lc", commandLine);
+    }
+
+    private static void applySandboxEnv(Map<String, String> env) {
+        String mavenHome = System.getenv("CW_MAVEN_HOME");
+        if (mavenHome == null || mavenHome.isBlank()) {
+            return;
+        }
+        Path bin = Paths.get(mavenHome.trim(), "bin");
+        if (!Files.isDirectory(bin)) {
+            return;
+        }
+        String pathKey = isWindows() ? "Path" : "PATH";
+        String existing = env.getOrDefault(pathKey, System.getenv(pathKey));
+        env.put(pathKey, bin.toString() + File.pathSeparator + (existing != null ? existing : ""));
+    }
+
+    private static String buildExitMessage(int code, String command, String stderr) {
+        if (code == 0) {
+            return "演示执行完成";
+        }
+        if (code == 127) {
+            String hint = command.startsWith("mvn")
+                    ? "未找到 mvn。请在服务器安装 Maven 并加入 PATH，或设置环境变量 CW_MAVEN_HOME。"
+                    : "未找到命令。请确认服务器已安装对应工具并加入 PATH。";
+            if (stderr != null && !stderr.isBlank()) {
+                return hint + " " + stderr.lines().findFirst().orElse("").trim();
+            }
+            return hint + " 可先试「java -version」验证 Java 环境。";
+        }
+        return "命令退出码 " + code;
     }
 
     private static boolean isWindows() {

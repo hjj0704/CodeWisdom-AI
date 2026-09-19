@@ -5,8 +5,15 @@ import 'element-plus/dist/index.css'
 import 'element-plus/theme-chalk/dark/css-vars.css'
 import App from './App.vue'
 import router from './router'
+import { useThemeStore } from './stores/theme'
+import { useSettingsStore } from './stores/settings'
 import './style.css'
 
-document.documentElement.classList.add('dark')
-
-createApp(App).use(createPinia()).use(router).use(ElementPlus).mount('#app')
+const pinia = createPinia()
+const app = createApp(App)
+app.use(pinia)
+app.use(router)
+app.use(ElementPlus)
+useThemeStore().init()
+useSettingsStore().applyMotionPreference()
+app.mount('#app')

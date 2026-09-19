@@ -67,7 +67,7 @@ onUnmounted(() => {
 <template>
   <div class="help-page">
     <header class="help-hero glass-panel">
-      <span class="section-label">Documentation</span>
+      <span class="section-label">使用说明</span>
       <h1 class="gradient-text">帮助中心</h1>
       <p>了解 CodeWisdom 每个功能的作用与推荐操作顺序。辅助分析结果均需人工确认。</p>
     </header>
@@ -115,8 +115,10 @@ onUnmounted(() => {
         <section id="audit" class="help-section">
           <h2>运行审计</h2>
           <p>扫描项目中的潜在问题（空指针、死代码、异常处理等），按高/中/低分级。</p>
+          <p>超大仓库会按路径排序只扫描前 N 个 Java 文件（默认 500，可通过服务端环境变量 <code>CW_AUDIT_MAX_JAVA_FILES</code> 调整）；若被截断，工作台会显示黄色提示条。</p>
           <p>审计完成后：文件树节点显示问题数角标（颜色对应该文件最高风险）；下方列表点击可跳转到对应文件行。</p>
           <p>空 catch 等低风险项可「忽略」或开启「隐藏空 catch」，不影响你处理高优先级问题。</p>
+          <p>在代码编辑器里，也可<strong>点击行左侧彩色圆点</strong>直接忽略该行问题，高亮会立即消失。</p>
         </section>
 
         <section id="risk" class="help-section">
@@ -152,6 +154,7 @@ onUnmounted(() => {
             <li><strong>绿色（+）：</strong>编辑器<strong>当前内容</strong>（应用建议或手动修改后）。</li>
           </ul>
           <p>典型用法：应用建议或采用 AI 修改 → 预览 Diff → 满意则「保存」→ HITL「确认」。</p>
+          <p>若不满意 AI 或应用建议的改动，可点「<strong>撤销修改</strong>」恢复为上次保存内容（无需先保存）。</p>
           <p>若 Diff 显示「无变化」，说明编辑器内容与已保存版本相同，请先应用建议或手动修改。</p>
         </section>
 
@@ -182,6 +185,7 @@ onUnmounted(() => {
           <ul>
             <li><strong>下载 ZIP：</strong>导出当前项目副本（Git 导入时可关闭此能力）；</li>
             <li><strong>沙箱校验：</strong>在「更多分析 → 运行判定」中校验命令是否允许执行；</li>
+            <li><strong>在线演示：</strong>优先扫描 README / docs / package.json 与仓库远程 README，若发现「在线演示」类链接则新标签页打开；否则对轻量项目执行 <code>mvn -q compile/test/package</code>。</li>
             <li><strong>评测报告：</strong>量化评分与 Markdown 报告，供迭代参考。</li>
           </ul>
         </section>
@@ -218,17 +222,21 @@ onUnmounted(() => {
   grid-template-columns: 220px 1fr;
   gap: 16px;
   align-items: start;
+  position: relative;
 }
 
 .help-nav {
   position: sticky;
-  top: 80px;
+  top: 72px;
+  align-self: start;
+  z-index: 5;
   padding: 12px;
   display: flex;
   flex-direction: column;
   gap: 4px;
-  max-height: calc(100vh - 100px);
-  overflow: auto;
+  max-height: calc(100vh - 88px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .help-nav__link {
@@ -246,8 +254,9 @@ onUnmounted(() => {
 
 .help-nav__link:hover,
 .help-nav__link.active {
-  color: var(--cw-accent);
-  background: rgba(34, 211, 238, 0.1);
+  color: var(--cw-primary);
+  background: var(--cw-primary-bg);
+  font-weight: 500;
 }
 
 .help-content {
@@ -275,7 +284,7 @@ onUnmounted(() => {
 }
 
 .help-section strong {
-  color: var(--cw-accent);
+  color: var(--cw-primary);
   font-weight: 600;
 }
 
@@ -290,15 +299,15 @@ onUnmounted(() => {
 }
 
 .risk-doc-high {
-  color: #fca5a5 !important;
+  color: var(--cw-risk-high) !important;
 }
 
 .risk-doc-medium {
-  color: #fdba74 !important;
+  color: var(--cw-risk-medium) !important;
 }
 
 .risk-doc-low {
-  color: #fde047 !important;
+  color: var(--cw-risk-low) !important;
 }
 
 @media (max-width: 800px) {

@@ -2,6 +2,7 @@ package com.codewisdom.agent.config;
 
 import com.codewisdom.agent.client.llm.LlmClient;
 import com.codewisdom.agent.service.doc.DocCommentGenerator.DocGenProperties;
+import com.codewisdom.agent.service.doc.DocCommentGenerator;
 import com.codewisdom.agent.service.fix.DiffGenerator;
 import com.codewisdom.agent.service.fix.FixSuggestGenerator;
 import com.codewisdom.agent.service.fix.HitlReviewService;
@@ -16,6 +17,11 @@ public class FixConfig {
     DocGenProperties docGenProperties(
             @Value("${codewisdom.doc-gen.enabled:true}") boolean enabled) {
         return new DocGenProperties(enabled);
+    }
+
+    @Bean
+    DocCommentGenerator docCommentGenerator(LlmClient llmClient, DocGenProperties docGenProperties) {
+        return new DocCommentGenerator(llmClient, docGenProperties);
     }
 
     @Bean

@@ -55,7 +55,7 @@ public class ChatController {
     public R<ChatReplyView> chat(@PathVariable long sessionId,
                                  @Valid @RequestBody ChatRequest request,
                                  @RequestHeader(value = "Authorization", required = false) String authorization) {
-        return R.ok(chatService.chat(sessionId, request.content(), authorization));
+        return R.ok(chatService.chat(sessionId, request.content(), request.workbench(), authorization));
     }
 
     @DeleteMapping("/sessions/{sessionId}")

@@ -29,8 +29,6 @@ import java.util.stream.Stream;
 @Service
 public class ProjectArchitectureService {
 
-    private static final int MAX_JAVA_FILES = 120;
-
     private final WorkspaceProperties workspaceProperties;
     private final SourceParser sourceParser;
     private final JavaStructureExtractor structureExtractor;
@@ -61,10 +59,12 @@ public class ProjectArchitectureService {
         Map<String, List<TypeDeclaration>> typesByPath = new LinkedHashMap<>();
         List<CallGraph.SourceUnit> units = new ArrayList<>();
 
+        int limit = Math.max(1, workspaceProperties.getMaxJavaFiles());
         try (Stream<Path> walk = Files.walk(scanRoot)) {
             List<Path> javaFiles = walk.filter(Files::isRegularFile)
                     .filter(p -> p.toString().endsWith(".java"))
-                    .limit(MAX_JAVA_FILES)
+                    .sorted()
+                    .limit(limit)
                     .toList();
             for (Path file : javaFiles) {
                 String rel = scanRoot.relativize(file).toString().replace('\\', '/');
@@ -99,7 +99,8 @@ public class ProjectArchitectureService {
     }
 
     private Path scanRoot(long projectId) {
-        Path workspace = Paths.get(workspaceProperties.getRoot()).resolve(String.valueOf(projectId));
+        Path root = Paths.get(workspaceProperties.getRoot()).toAbsolutePath().normalize();
+        Path workspace = root.resolve(String.valueOf(projectId));
         Path repoDir = workspace.resolve("repo");
         if (Files.isDirectory(repoDir)) {
             return repoDir;

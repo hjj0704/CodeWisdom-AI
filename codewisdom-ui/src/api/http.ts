@@ -20,6 +20,10 @@ http.interceptors.request.use((config) => {
     config.headers = config.headers ?? {}
     config.headers.Authorization = `Bearer ${auth.token}`
   }
+  if (config.data instanceof FormData) {
+    config.headers = config.headers ?? {}
+    delete config.headers['Content-Type']
+  }
   return config
 })
 

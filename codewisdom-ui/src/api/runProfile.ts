@@ -40,6 +40,22 @@ export interface SandboxRunResult {
   message: string
 }
 
+export interface DemoLinkResult {
+  found: boolean
+  url: string | null
+  label: string | null
+  sourceFile: string | null
+  message: string
+}
+
+export function discoverDemoLink(projectId: number, sourceUrl?: string | null) {
+  return request<DemoLinkResult>({
+    url: `/evaluation-export/projects/${projectId}/sandbox/demo-link`,
+    method: 'GET',
+    params: sourceUrl ? { sourceUrl } : undefined,
+  })
+}
+
 export function runSandboxDemo(projectId: number, command: string) {
   return request<SandboxRunResult>({
     url: `/evaluation-export/projects/${projectId}/sandbox/run`,
