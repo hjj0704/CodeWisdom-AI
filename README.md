@@ -1,6 +1,8 @@
 # CodeWisdom AI
 
-**全链路代码智能治理与多维度迭代平台** —— 面向研发团队，覆盖项目导入、架构逆向、缺陷审计、文档注释、修复建议与人机协同（HITL），而非单文件 AI 补全。
+> Java 微服务 + Vue3 工作台：项目导入 · 静态审计 · 架构图 · LLM 修复/HITL · 可控 Agent（跳转 / 补注释 / 需求澄清）
+
+**全链路代码智能治理平台**（面向研发团队，默认不自动改库）
 
 [![在线演示](https://img.shields.io/badge/demo-在线体验-409eff)](http://47.93.158.48/)
 [![Gitee](https://img.shields.io/badge/Gitee-仓库-c71d23)](https://gitee.com/han-jiajiemm/CodeWisdom)
@@ -11,10 +13,19 @@
 ## 界面预览
 
 <p align="center">
-  <img src="docs/images/import-center.png" alt="CodeWisdom 导入中心" width="920" />
+  <a href="docs/images/import-center@2x.png" title="点击查看高清原图">
+    <img
+      src="docs/images/import-center@2x.png"
+      alt="CodeWisdom 导入中心：Git/ZIP 导入、隐私说明、服务状态"
+      width="1024"
+      loading="lazy"
+    />
+  </a>
 </p>
 
-<p align="center"><sub>导入中心：Git / ZIP 导入 · 项目健康卡片 · 隐私说明</sub></p>
+<p align="center">
+  <sub>导入中心 · <a href="docs/images/import-center@2x.png">高清原图 2048px</a> · 换图方法见 <a href="docs/images/README.md">docs/images/README.md</a></sub>
+</p>
 
 ---
 
@@ -193,3 +204,28 @@ CodeWisdom/
 - GitHub 导入按 JGit 通用能力实现，**本机环境未完整验证**；Gitee 导入已完整验证。
 - Agent 编排采用 **提议 → 确认 → 执行** 模式，不适合「全自动无监督改库」场景。
 - 演示服务器为学习与展示用途，不承诺 SLA。
+
+---
+
+## Gitee 仓库展示建议（提高曝光）
+
+在 Gitee **仓库设置 → 基本信息** 中建议填写（可直接复制）：
+
+| 字段 | 建议内容 |
+|------|----------|
+| **一句话介绍** | Java 微服务代码治理平台：导入、审计、架构图、LLM 修复与 Agent 工作台 |
+| **项目描述** | 见本 README 首段；附在线 Demo http://47.93.158.48/ |
+| **主页** | `http://47.93.158.48/` |
+| **标签** | `java` `spring-boot` `vue3` `code-analysis` `tree-sitter` `llm` `agent` `devtools` |
+
+**提高推荐几率的实操清单：**
+
+1. **README 首屏**：首行关键词 + 清晰截图（本仓库已用 2048px 图，显示宽度 1024）
+2. **持续 commit**：规律推送（修文档、Issue 也算活跃度）
+3. **开源许可证**：建议添加 `LICENSE`（如 Apache-2.0 / MIT），未选许可证会降低收录权重
+4. **Release**：打 `v0.1.0` 标签并写更新说明，Gitee 首页更易展示
+5. **Star / 分享**：让同学 Star、在掘金/V2EX 附仓库链接（外链回流）
+6. **Gitee 推荐位**：参与 [GVP](https://gitee.com/gvp) / 开源毕业设计栏目（若符合活动）
+7. **Issue 模板**：欢迎反馈，保持 Issue 有回复
+
+更完整的截图规范与换图流程：[`docs/images/README.md`](docs/images/README.md) · [`docs/gitee-showcase.md`](docs/gitee-showcase.md)
